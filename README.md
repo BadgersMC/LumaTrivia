@@ -1,6 +1,7 @@
 # LumaTrivia
 
 A Minecraft trivia game plugin powered by OpenTriviaDB. Challenge your players with questions across various categories and difficulties!
+Make these darn iPad kids learn a thing or two while they play block game.
 
 ## Features
 
