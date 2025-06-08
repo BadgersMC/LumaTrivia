@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import net.lumalyte.trivia.TriviaPlugin;
 import net.lumalyte.trivia.models.Question;
 import net.lumalyte.trivia.util.Base64Decoder;
+import net.lumalyte.trivia.util.ContentFilter;
 import net.lumalyte.trivia.util.MessageUtil;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -29,6 +30,7 @@ public class TriviaManager {
     private final LeaderboardManager leaderboardManager;
     private final List<BukkitTask> scheduledGames;
     private final Set<UUID> answeredPlayers;
+    private final ContentFilter contentFilter;
     private Question currentQuestion;
     private boolean gameActive;
     private int taskId;
@@ -44,6 +46,7 @@ public class TriviaManager {
         this.leaderboardManager = new LeaderboardManager(plugin);
         this.scheduledGames = new ArrayList<>();
         this.answeredPlayers = Collections.newSetFromMap(new ConcurrentHashMap<>());
+        this.contentFilter = new ContentFilter(plugin);
         this.gameActive = false;
         setupScheduledGames();
     }
@@ -220,26 +223,43 @@ public class TriviaManager {
                     JsonArray results = json.getAsJsonArray("results");
                     plugin.getLogger().info("Received " + results.size() + " questions from API");
 
+                    int filtered = 0;
                     for (int i = 0; i < results.size(); i++) {
                         JsonObject q = results.get(i).getAsJsonObject();
+                        String decodedQuestion = Base64Decoder.decode(q.get("question").getAsString());
+                        String decodedCategory = Base64Decoder.decode(q.get("category").getAsString());
+                        
+                        // Apply content filter
+                        if (!contentFilter.isAllowed(decodedQuestion, decodedCategory)) {
+                            filtered++;
+                            continue;
+                        }
+
                         Question question = new Question(
-                            Base64Decoder.decode(q.get("question").getAsString()),
+                            decodedQuestion,
                             Base64Decoder.decode(q.get("correct_answer").getAsString()),
                             Base64Decoder.decodeList(q.get("incorrect_answers").getAsJsonArray()
                                 .asList().stream()
                                 .map(e -> e.getAsString())
                                 .toList()),
-                            Base64Decoder.decode(q.get("category").getAsString()),
+                            decodedCategory,
                             Base64Decoder.decode(q.get("difficulty").getAsString()),
                             Base64Decoder.decode(q.get("type").getAsString())
                         );
                         questionCache.offer(question);
                     }
 
+                    if (filtered > 0) {
+                        plugin.getLogger().info("Filtered " + filtered + " questions based on content rules");
+                    }
+
                     // If a game was waiting for questions, start it now
                     if (!gameActive && !questionCache.isEmpty()) {
                         plugin.getLogger().info("Questions fetched, starting pending game...");
                         Bukkit.getScheduler().runTask(plugin, this::startGame);
+                    } else if (questionCache.isEmpty()) {
+                        plugin.getLogger().warning("All questions were filtered! Trying to fetch more...");
+                        Bukkit.getScheduler().runTaskLater(plugin, this::fetchQuestions, 20L); // Try again in 1 second
                     }
                 }
             } catch (Exception e) {

@@ -116,3 +116,19 @@ messages:
       %prefix% &6Top Players:
       %leaderboard%
       %separator%
+
+# Content Filter Settings
+content-filter:
+  enabled: true
+  # Questions containing any of these regex patterns will be filtered out
+  blocked-patterns:
+    - "(?i)suicide|death|kill"
+    - "(?i)sex|nsfw|adult"
+    - "(?i)drugs?|alcohol|cocaine|heroin"
+    - "(?i)violence|murder|gore"
+    - "(?i)blood|bloody"
+    - "(?i)curse|damn|hell"
+  # Questions must match this regex pattern to be accepted (leave empty to accept all)
+  required-pattern: ""
+  # Log filtered questions for review
+  log-filtered: true
