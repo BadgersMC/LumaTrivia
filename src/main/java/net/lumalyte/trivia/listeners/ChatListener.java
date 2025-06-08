@@ -1,51 +1,50 @@
 package net.lumalyte.trivia.listeners;
 
+import net.lumalyte.trivia.TriviaPlugin;
+import net.lumalyte.trivia.managers.TriviaManager;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.TextComponent;
-import net.lumalyte.trivia.managers.TriviaManager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 public class ChatListener implements Listener {
+    private final TriviaPlugin plugin;
     private final TriviaManager triviaManager;
 
-    public ChatListener(TriviaManager triviaManager) {
+    public ChatListener(TriviaPlugin plugin, TriviaManager triviaManager) {
+        this.plugin = plugin;
         this.triviaManager = triviaManager;
     }
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerChat(AsyncChatEvent event) {
-        // Get the raw message from the TextComponent
+        // Check if player is muted first
+        if (triviaManager.handleChat(event)) {
+            event.setCancelled(true);
+            return;
+        }
+
+        // Get message content
         if (!(event.message() instanceof TextComponent textComponent)) {
             return;
         }
-        
-        String message = textComponent.content().trim().toLowerCase();
-        
-        // Check if it's a valid answer format
-        boolean isValidAnswer = false;
-        
-        // Check for multiple choice (A, B, C, D)
-        if (message.length() == 1 && message.matches("[abcd]")) {
-            isValidAnswer = true;
+
+        String message = textComponent.content().trim();
+        if (!message.startsWith("!")) {
+            return;
         }
-        
-        // Check for true/false (T, F, True, False)
-        if (message.matches("^(t(rue)?|f(alse)?)$")) {
-            // Normalize to single letter
-            message = message.substring(0, 1);
-            isValidAnswer = true;
+
+        String answer = message.substring(1).trim();
+        if (answer.isEmpty()) {
+            return;
         }
-        
-        if (isValidAnswer) {
-            // If player has already answered, cancel their message
-            if (triviaManager.hasPlayerAnswered(event.getPlayer().getUniqueId())) {
-                event.setCancelled(true);
-                return;
-            }
-            
-            triviaManager.checkAnswer(event.getPlayer(), message);
-        }
+
+        // Cancel the chat message
+        event.setCancelled(true);
+
+        // Process the answer on the main thread
+        plugin.getServer().getScheduler().runTask(plugin, () -> 
+            triviaManager.checkAnswer(event.getPlayer(), answer));
     }
 } 

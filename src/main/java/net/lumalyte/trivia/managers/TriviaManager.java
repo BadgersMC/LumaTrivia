@@ -15,6 +15,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
+import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.TextComponent;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -30,6 +33,7 @@ public class TriviaManager {
     private final LeaderboardManager leaderboardManager;
     private final List<BukkitTask> scheduledGames;
     private final Set<UUID> answeredPlayers;
+    private final Set<UUID> mutedPlayers;
     private final ContentFilter contentFilter;
     private Question currentQuestion;
     private boolean gameActive;
@@ -46,6 +50,7 @@ public class TriviaManager {
         this.leaderboardManager = new LeaderboardManager(plugin);
         this.scheduledGames = new ArrayList<>();
         this.answeredPlayers = Collections.newSetFromMap(new ConcurrentHashMap<>());
+        this.mutedPlayers = Collections.newSetFromMap(new ConcurrentHashMap<>());
         this.contentFilter = new ContentFilter(plugin);
         this.gameActive = false;
         setupScheduledGames();
@@ -80,7 +85,8 @@ public class TriviaManager {
             return;
         }
 
-        // Clear answered players from previous game
+        // Clear muted and answered players from previous game
+        mutedPlayers.clear();
         answeredPlayers.clear();
         currentQuestion = questionCache.poll();
         gameActive = true;
@@ -144,7 +150,7 @@ public class TriviaManager {
             gameActive = false;
             Bukkit.getScheduler().cancelTask(taskId);
             
-            // Announce winner
+            // Announce winner and clear muted players
             String winMsg = plugin.getConfig().getString("messages.game.correct-answer")
                 .replace("%player%", player.getName())
                 .replace("%answer%", currentQuestion.getCorrectAnswer())
@@ -156,6 +162,9 @@ public class TriviaManager {
 
             // Give rewards
             giveRewards(player, currentQuestion.getDifficulty());
+
+            // Clear muted players as game is over
+            mutedPlayers.clear();
         } else {
             // Handle wrong answer
             String wrongAnswerMsg = plugin.getConfig().getString("messages.game.wrong-answer");
@@ -164,6 +173,11 @@ public class TriviaManager {
                     .replace("%player%", player.getName())
                     .replace("%answer%", answer);
                 MessageUtil.broadcast(wrongAnswerMsg);
+            }
+
+            // Mute player if enabled
+            if (plugin.getConfig().getBoolean("game.mute-incorrect.enabled", true)) {
+                mutedPlayers.add(player.getUniqueId());
             }
         }
     }
@@ -184,6 +198,9 @@ public class TriviaManager {
             .replace("%answer%", currentQuestion.getCorrectAnswer())
             .replace("%letter%", currentQuestion.getCorrectAnswerLetter());
         MessageUtil.broadcast(timeUpMsg);
+
+        // Clear muted players as game is over
+        mutedPlayers.clear();
     }
 
     private void giveRewards(Player player, String difficulty) {
@@ -304,5 +321,39 @@ public class TriviaManager {
 
     public LeaderboardManager getLeaderboardManager() {
         return leaderboardManager;
+    }
+
+    /**
+     * Check if a player is currently muted due to incorrect answer.
+     * 
+     * @param playerId The UUID of the player to check
+     * @return true if the player is muted, false otherwise
+     */
+    public boolean isMuted(UUID playerId) {
+        return mutedPlayers.contains(playerId);
+    }
+
+    /**
+     * Handle chat event for muted players.
+     * 
+     * @param event The chat event to handle
+     * @return true if the message should be cancelled (player is muted), false otherwise
+     */
+    public boolean handleChat(AsyncChatEvent event) {
+        if (!gameActive) {
+            return false;
+        }
+
+        Player player = event.getPlayer();
+        if (isMuted(player.getUniqueId())) {
+            if (plugin.getConfig().getBoolean("game.mute-incorrect.show-message", true)) {
+                String muteMsg = plugin.getConfig().getString("game.mute-incorrect.message", 
+                    "&cYou are muted until this trivia game ends!");
+                MessageUtil.sendMessage(player, muteMsg);
+            }
+            return true;
+        }
+
+        return false;
     }
 } 

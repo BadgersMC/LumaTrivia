@@ -35,6 +35,10 @@ game:
     - easy
     - medium
     - hard
+  mute-incorrect:
+    enabled: true
+    message: "&cYou are muted until this trivia game ends!"
+    show-message: true
 
 # Reward Settings
 rewards:
