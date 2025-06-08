@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discord Support
+    url: https://discord.gg/badgersmc
+    about: Get help and chat with the community
+  - name: Documentation
+    url: https://github.com/BadgersMC/LumaTrivia/wiki
+    about: Check our documentation before creating an issue
+  - name: Unsupported Server Software
+    url: https://github.com/BadgersMC/LumaTrivia/wiki/Supported-Platforms
+    about: We do not support hybrid servers (Arclight, Mohist, Magma, Ketting). Please use Paper or Folia. 

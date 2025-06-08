@@ -1,0 +1,95 @@
+name: Bug Report
+description: Create a report to help us improve
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+        
+        Before submitting, please make sure you have:
+        1. Updated to the latest version
+        2. Checked existing issues
+        3. Read the documentation
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Pre-submission Checklist
+      description: Please check all boxes that apply
+      options:
+        - label: I clicked all checkboxes without reading them
+          required: false
+        - label: I tried the plugin by itself in a paper server (no other plugins)
+          required: true
+        - label: I am using an official Paper server (not Arclight, Mohist, Magma, Ketting, or other hybrid software)
+          required: true
+        - label: I have checked for similar issues before creating this one
+          required: true
+        - label: I am running the latest version of the plugin
+          required: true
+
+  - type: dropdown
+    id: server_type
+    attributes:
+      label: Server Software
+      description: What server software are you using?
+      options:
+        - Paper
+        - Folia
+    validations:
+      required: true
+
+  - type: input
+    id: server_version
+    attributes:
+      label: Server Version
+      description: What version of Paper/Folia are you using?
+      placeholder: "e.g., Paper 1.20.4 build #264"
+    validations:
+      required: true
+
+  - type: input
+    id: plugin_version
+    attributes:
+      label: Plugin Version
+      description: What version of LumaTrivia are you using?
+      placeholder: "e.g., 1.0.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened?
+      description: Also tell us what you expected to happen
+      placeholder: "Describe the bug in detail..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. Use command '....'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Log Output
+      description: Please copy and paste any relevant log output. This will be automatically formatted into code.
+      render: shell
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Plugin Configuration
+      description: Please share your config.yml (remove any sensitive information)
+      render: yaml 
