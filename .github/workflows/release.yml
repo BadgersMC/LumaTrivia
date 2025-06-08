@@ -23,7 +23,7 @@ jobs:
         uses: gradle/gradle-build-action@v2
       
       - name: Execute Gradle build
-        run: ./gradlew build
+        run: ./gradlew clean shadowJar
       
       - name: Get version from tag
         id: get_version
@@ -36,7 +36,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            build/libs/*.jar
+            build/libs/*-all.jar
           body: |
             ## LumaTrivia ${{ env.VERSION }}
             
