@@ -1,0 +1,118 @@
+# A journey of 1,000 lines starts with a single char
+
+# LumaTrivia Configuration
+
+# Performance Settings
+performance:
+  cache-cleanup-interval: 300  # Seconds between cache cleanup
+  max-cache-size: 100  # Maximum questions to cache
+  batch-size: 24  # Questions to fetch per API call
+  async-saving: true  # Save stats async
+
+# API Settings
+api:
+  cache-size: 50  # Number of questions to cache
+  batch-size: 24  # Number of questions to fetch per API call
+  url: "https://opentdb.com/api.php"
+  timeout: 10000  # API timeout in milliseconds
+  encode: "base64" # API encoding type
+
+# Game Settings
+game:
+  answer-time: 30    # Seconds to answer each question
+  cooldown: 300      # Seconds between trivia games
+  schedule:          # Optional scheduled games (24h format)
+    enabled: false
+    times:
+      - "12:00"
+      - "18:00"
+      - "21:00"
+  categories:        # List of category IDs to use (empty = all categories)
+    - 9  # General Knowledge
+    - 15 # Video Games
+    - 17 # Science & Nature
+  difficulties:      # List of difficulties to use
+    - easy
+    - medium
+    - hard
+
+# Reward Settings
+rewards:
+  easy:
+    commands:
+      - "eco give %player% 100"
+      - "give %player% diamond 1"
+    points: 1
+  medium:
+    commands:
+      - "eco give %player% 250"
+      - "give %player% diamond 3"
+    points: 2
+  hard:
+    commands:
+      - "eco give %player% 500"
+      - "give %player% diamond 5"
+      - "give %player% netherite_ingot 1"
+    points: 3
+  
+# Message Settings
+messages:
+  prefix: "&6[&bLumaTrivia&6]&r "
+  separator: "&6━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  colors:
+    primary: "&b"
+    secondary: "&6"
+    highlight: "&e"
+    success: "&a"
+    error: "&c"
+  
+  game:
+    start: |
+      %separator%
+      %prefix% &eA new trivia question has been asked!
+      %separator%
+    question: |
+      %separator%
+      %prefix% &b%question%
+      %separator%
+    options: |
+      %prefix% &e&lOptions:
+      %answers%
+      %separator%
+    correct-answer: |
+      %separator%
+      %prefix% &a%player% got it right!
+      &eThe answer was: &b%answer% &7(%letter%)
+      %separator%
+    wrong-answer: |
+      %prefix% &c%player% guessed &7%answer% &c- that's not correct!
+    already-answered: "%prefix% &cYou've already answered this question!"
+    time-up: |
+      %separator%
+      %prefix% &cTime's up!
+      &eThe correct answer was: &b%answer% &7(%letter%)
+      %separator%
+    cooldown: |
+      %prefix% &cPlease wait %time% seconds before starting another game
+  
+  error:
+    no-permission: "%prefix% &cYou don't have permission to use this command!"
+    player-only: "%prefix% &cThis command can only be used by players!"
+    
+  commands:
+    reload: "%prefix% &aConfiguration reloaded successfully!"
+    error: "%prefix% &cAn error occurred while executing the command"
+    stats: |
+      %separator%
+      %prefix% &eStats for %player%
+      &7Total Correct: &f%total%
+      &7Easy: &a%easy%
+      &7Medium: &e%medium%
+      &7Hard: &c%hard%
+      &7Points: &6%points%
+      %separator%
+    leaderboard: |
+      %separator%
+      %prefix% &6Top Players:
+      %leaderboard%
+      %separator%

@@ -1,0 +1,21 @@
+name: LumaTrivia
+version: '${version}'
+main: net.lumalyte.trivia.TriviaPlugin
+api-version: '1.20'
+authors: ['BadgersMC', 'Lumalyte']
+description: A trivia game plugin using OpenTriviaDB
+website: https://github.com/BadgersMC
+
+permissions:
+  lumatrivia.use:
+    description: Allows viewing stats and leaderboards
+    default: true
+  lumatrivia.start:
+    description: Allows starting trivia games
+    default: op
+  lumatrivia.admin:
+    description: Allows use of administrative trivia commands (reload)
+    default: op
+    children:
+      lumatrivia.start: true
+      lumatrivia.use: true 

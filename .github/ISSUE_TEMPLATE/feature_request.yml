@@ -1,0 +1,72 @@
+name: Feature Request
+description: Suggest an idea for this project
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to suggest a new feature!
+        
+        Before submitting, please make sure you have:
+        1. Checked existing issues and pull requests
+        2. Read the documentation to ensure this feature doesn't already exist
+        3. Considered the impact on existing functionality
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Pre-submission Checklist
+      description: Please check all boxes that apply
+      options:
+        - label: I clicked all checkboxes without reading them
+          required: false
+        - label: I have checked that this feature hasn't already been requested
+          required: true
+        - label: I am using an official Paper server (not Arclight, Mohist, Magma, Ketting, or other hybrid software)
+          required: true
+        - label: I have read the documentation thoroughly
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of what the problem is.
+      placeholder: "I'm always frustrated when [...]"
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: A clear and concise description of what you want to happen.
+      placeholder: "I would like the plugin to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Describe alternatives you've considered
+      description: A clear and concise description of any alternative solutions or features you've considered.
+      placeholder: "I've thought about doing it this way instead..."
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add any other context or screenshots about the feature request here.
+      placeholder: "This would be useful for..."
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Nice to have
+        - Important
+        - Critical
+    validations:
+      required: true 
