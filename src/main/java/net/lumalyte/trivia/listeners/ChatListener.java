@@ -19,32 +19,46 @@ public class ChatListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerChat(AsyncChatEvent event) {
-        // Check if player is muted first
-        if (triviaManager.handleChat(event)) {
-            event.setCancelled(true);
-            return;
-        }
-
         // Get message content
         if (!(event.message() instanceof TextComponent textComponent)) {
             return;
         }
 
-        String message = textComponent.content().trim();
-        if (!message.startsWith("!")) {
+        // Get and normalize the message
+        String originalMessage = textComponent.content().trim().toLowerCase();
+        String answer = originalMessage;
+
+        // Check if player is muted (do this for ALL messages)
+        if (triviaManager.handleChat(event)) {
+            event.setCancelled(true);
             return;
         }
 
-        String answer = message.substring(1).trim();
-        if (answer.isEmpty()) {
-            return;
+        // Check if it's a valid answer format
+        boolean isValidAnswer = false;
+        
+        // Check for multiple choice (A, B, C, D)
+        if (answer.length() == 1 && answer.matches("[abcd]")) {
+            isValidAnswer = true;
         }
 
-        // Cancel the chat message
-        event.setCancelled(true);
+        // Check for true/false (T, F, True, False)
+        if (answer.matches("^(t(rue)?|f(alse)?)$")) {
+            // Normalize to single letter
+            answer = answer.substring(0, 1);
+            isValidAnswer = true;
+        }
+        
+        if (isValidAnswer) {
+            // Store final answer for lambda
+            final String finalAnswer = answer;
+            
+            // Cancel the chat message
+            event.setCancelled(true);
 
-        // Process the answer on the main thread
-        plugin.getServer().getScheduler().runTask(plugin, () -> 
-            triviaManager.checkAnswer(event.getPlayer(), answer));
+            // Process the answer on the main thread
+            plugin.getServer().getScheduler().runTask(plugin, () -> 
+                triviaManager.checkAnswer(event.getPlayer(), finalAnswer));
+        }
     }
 } 
