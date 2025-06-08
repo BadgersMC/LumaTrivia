@@ -36,7 +36,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            build/libs/*-all.jar
+            build/libs/LumaTrivia-*.jar
           body: |
             ## LumaTrivia ${{ env.VERSION }}
             
