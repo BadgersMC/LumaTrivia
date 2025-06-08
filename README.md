@@ -2,7 +2,7 @@
 
 A Minecraft trivia game plugin powered by OpenTriviaDB. Challenge your players with questions across various categories and difficulties!
 Make these darn iPad kids learn a thing or two while they play block game.
-
+![KnOwLeDgE](https://github.com/user-attachments/assets/dd7507df-4521-40ca-bdc6-7f8595874f85)
 ## Features
 
 - Multiple choice and true/false questions
@@ -14,6 +14,9 @@ Make these darn iPad kids learn a thing or two while they play block game.
 - Optional scheduled games
 - Async question fetching and caching
 - Configurable messages and colors
+![trivia_example](https://github.com/user-attachments/assets/54e50c28-4fbd-49dc-a38b-f8cf2e004a79)
+![trivia_leaderboard](https://github.com/user-attachments/assets/1aaca8c6-2f4b-4d15-88b6-348a3edce8b3)
+![trivia_stats](https://github.com/user-attachments/assets/0c1f2b79-7b05-4f2e-bddf-5c18f7b4212e)
 
 ## Installation
 
