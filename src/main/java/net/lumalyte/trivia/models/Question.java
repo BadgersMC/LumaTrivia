@@ -1,5 +1,6 @@
 package net.lumalyte.trivia.models;
 
+import net.lumalyte.trivia.util.MessageUtil;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -59,8 +60,8 @@ public class Question {
     }
 
     public boolean isCorrectAnswer(String answer) {
-        // Convert answer to lowercase for case-insensitive comparison
-        answer = answer.toLowerCase().trim();
+        // Strip color codes and convert answer to lowercase for case-insensitive comparison
+        answer = MessageUtil.stripColor(answer.toLowerCase().trim());
 
         // Handle true/false questions
         if (type.equalsIgnoreCase("boolean")) {

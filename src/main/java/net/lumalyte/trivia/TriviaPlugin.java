@@ -3,11 +3,13 @@ package net.lumalyte.trivia;
 import net.lumalyte.trivia.commands.TriviaCommand;
 import net.lumalyte.trivia.listeners.ChatListener;
 import net.lumalyte.trivia.managers.TriviaManager;
+import net.lumalyte.trivia.managers.PlayerManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class TriviaPlugin extends JavaPlugin {
     private static TriviaPlugin instance;
     private TriviaManager triviaManager;
+    private PlayerManager playerManager;
     
     @Override
     public void onEnable() {
