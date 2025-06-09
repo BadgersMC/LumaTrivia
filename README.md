@@ -2,6 +2,8 @@
 
 A Minecraft trivia game plugin powered by OpenTriviaDB. Challenge your players with questions across various categories and difficulties!
 Make these darn iPad kids learn a thing or two while they play block game.
+Powered by https://opentdb.com/
+
 ![KnOwLeDgE](https://github.com/user-attachments/assets/dd7507df-4521-40ca-bdc6-7f8595874f85)
 ## Features
 
