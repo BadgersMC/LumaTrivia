@@ -68,17 +68,38 @@ public class LeaderboardManager {
         }
 
         for (String uuidStr : statsConfig.getKeys(false)) {
-            UUID playerId = UUID.fromString(uuidStr);
-            String path = uuidStr + ".";
-            String playerName = statsConfig.getString(path + "name");
-            PlayerStats ps = new PlayerStats(playerId, playerName);
+            try {
+                UUID playerId = UUID.fromString(uuidStr);
+                String path = uuidStr + ".";
+                String playerName = statsConfig.getString(path + "name");
+                
+                if (playerName == null) {
+                    plugin.getLogger().warning("Invalid player name for UUID: " + uuidStr);
+                    continue;
+                }
 
-            // Load all stats
-            for (int i = 0; i < statsConfig.getInt(path + "total"); i++) {
-                ps.addCorrectAnswer(statsConfig.getString(path + "difficulties." + i));
+                PlayerStats ps = new PlayerStats(playerId, playerName);
+
+                // Load individual stats
+                int easyCount = statsConfig.getInt(path + "easy", 0);
+                int mediumCount = statsConfig.getInt(path + "medium", 0);
+                int hardCount = statsConfig.getInt(path + "hard", 0);
+
+                // Add each type of answer
+                for (int i = 0; i < easyCount; i++) {
+                    ps.addCorrectAnswer("easy");
+                }
+                for (int i = 0; i < mediumCount; i++) {
+                    ps.addCorrectAnswer("medium");
+                }
+                for (int i = 0; i < hardCount; i++) {
+                    ps.addCorrectAnswer("hard");
+                }
+
+                stats.put(playerId, ps);
+            } catch (IllegalArgumentException e) {
+                plugin.getLogger().warning("Invalid UUID in stats file: " + uuidStr);
             }
-
-            stats.put(playerId, ps);
         }
     }
 
@@ -99,10 +120,10 @@ public class LeaderboardManager {
         for (PlayerStats ps : stats.values()) {
             String path = ps.getPlayerId().toString() + ".";
             statsConfig.set(path + "name", ps.getPlayerName());
-            statsConfig.set(path + "total", ps.getTotalCorrect());
             statsConfig.set(path + "easy", ps.getEasyCorrect());
             statsConfig.set(path + "medium", ps.getMediumCorrect());
             statsConfig.set(path + "hard", ps.getHardCorrect());
+            statsConfig.set(path + "total", ps.getTotalCorrect());
             statsConfig.set(path + "points", ps.getPoints());
         }
 
