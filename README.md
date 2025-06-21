@@ -1,4 +1,5 @@
 # LumaTrivia
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/17059c754fa348779cdd2fbbaecf552d)](https://app.codacy.com/gh/BadgersMC/LumaTrivia/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
 A Minecraft trivia game plugin powered by OpenTriviaDB. Challenge your players with questions across various categories and difficulties!
 Make these darn iPad kids learn a thing or two while they play block game.
