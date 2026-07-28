@@ -6,6 +6,7 @@ data class GameConfig(
     val answerTime: Int, val cooldown: Int,
     val muteIncorrect: MuteIncorrectConfig,
     val schedule: ScheduleConfig,
+    val channel: String,
     val categories: List<Int>, val difficulties: List<String>,
 )
 data class MuteIncorrectConfig(val enabled: Boolean)

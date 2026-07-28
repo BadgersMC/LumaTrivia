@@ -22,6 +22,7 @@ class TriviaService(
     var fetcher: QuestionFetcher,
     private val statsRepo: StatsRepository,
     private val scheduler: NexusScheduler,
+    private val chat: ChatPlatform,
 ) {
     enum class AnswerResult { CORRECT, WRONG, ALREADY_ANSWERED, NO_GAME }
 
@@ -38,22 +39,11 @@ class TriviaService(
     private var cooldownUntil: Long = 0L
     private var currentQuestionData: Question? = null
     private val answeredPlayers: MutableSet<UUID> = HashSet()
-    private val mutedPlayers: MutableMap<UUID, Long> = ConcurrentHashMap()
 
     val currentQuestion: Question? get() = currentQuestionData
     val isActive: Boolean get() = gameActive
 
     fun isGameActive(): Boolean = gameActive
-
-    /** Check if player is muted. Automatically expires stale entries. */
-    fun isPlayerMuted(uuid: UUID): Boolean {
-        val expiry = mutedPlayers[uuid] ?: return false
-        if (System.currentTimeMillis() >= expiry) {
-            mutedPlayers.remove(uuid)
-            return false
-        }
-        return true
-    }
 
     /** Update config at runtime (for reload). */
     fun updateConfig(newConfig: TriviaConfig) {
@@ -121,9 +111,9 @@ class TriviaService(
             return AnswerResult.CORRECT
         }
 
-        // Wrong answer — set expiry-based mute
+        // Wrong answer — delegate mute to chat platform
         if (config.game.muteIncorrect.enabled && !player.hasPermission("lumatrivia.mute.bypass")) {
-            mutedPlayers[player.uniqueId] = System.currentTimeMillis() + (config.game.answerTime * 1000L)
+            chat.mutePlayer(player, config.game.answerTime)
         }
         return AnswerResult.WRONG
     }
@@ -153,8 +143,7 @@ class TriviaService(
             plugin.server.scheduler.cancelTask(gameTaskId)
             gameTaskId = -1
         }
-        // Don't clear mutes — let per-player expiry and isPlayerMuted's auto-expiry handle it
-        // Cooldown starts when game ends, not when it starts
+        // Cooldown starts when game ends
         cooldownUntil = System.currentTimeMillis() + (config.game.cooldown * 1000L)
     }
 

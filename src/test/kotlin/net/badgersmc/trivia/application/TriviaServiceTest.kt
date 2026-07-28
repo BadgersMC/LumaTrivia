@@ -23,6 +23,7 @@ class TriviaServiceTest {
     private lateinit var fetcher: QuestionFetcher
     private lateinit var statsRepo: StatsRepository
     private lateinit var scheduler: NexusScheduler
+    private lateinit var chat: ChatPlatform
     private lateinit var config: TriviaConfig
     private lateinit var service: TriviaService
 
@@ -35,6 +36,7 @@ class TriviaServiceTest {
         fetcher = mockk(relaxed = true)
         statsRepo = mockk(relaxed = true)
         scheduler = mockk(relaxed = true)
+        chat = mockk(relaxed = true)
 
         every { plugin.server } returns server
         every { server.consoleSender } returns console
@@ -46,6 +48,7 @@ class TriviaServiceTest {
                 answerTime = 30, cooldown = 300,
                 muteIncorrect = MuteIncorrectConfig(true),
                 schedule = ScheduleConfig(false, emptyList()),
+                channel = "global",
                 categories = emptyList(), difficulties = emptyList(),
             ),
             rewards = mapOf(
@@ -57,7 +60,7 @@ class TriviaServiceTest {
             storage = StorageConfig("sqlite", "test.db"),
         )
 
-        service = TriviaService(plugin, config, fetcher, statsRepo, scheduler)
+        service = TriviaService(plugin, config, fetcher, statsRepo, scheduler, chat)
     }
 
     @AfterEach
@@ -88,16 +91,14 @@ class TriviaServiceTest {
 
     @Test
     fun `reject start during cooldown`() {
-        // Start a game and end it (correct answer) to trigger cooldown
         val question = createQuestion("Paris")
         every { fetcher.isEmpty } returns false
         every { fetcher.poll() } returns question
         service.startGame()
 
         val player = mockPlayer()
-        service.checkAnswer(player, question.correctAnswerLetter.lowercase()) // Correct = ends game, starts cooldown
+        service.checkAnswer(player, question.correctAnswerLetter.lowercase())
 
-        // Second start should be rejected
         val second = service.startGame()
         assertFalse(second)
     }
@@ -109,9 +110,7 @@ class TriviaServiceTest {
         every { fetcher.poll() } returns question
         service.startGame()
 
-        // Compute the correct answer letter from the shuffled question
         val correctLetter = question.correctAnswerLetter.lowercase()
-
         val player = mockPlayer()
         val result = service.checkAnswer(player, correctLetter)
 
@@ -121,7 +120,7 @@ class TriviaServiceTest {
     }
 
     @Test
-    fun `wrong answer mutes player and keeps game active`() {
+    fun `wrong answer delegates mute to platform and keeps game active`() {
         val question = createQuestion("Paris")
         every { fetcher.isEmpty } returns false
         every { fetcher.poll() } returns question
@@ -132,7 +131,7 @@ class TriviaServiceTest {
 
         assertEquals(TriviaService.AnswerResult.WRONG, result)
         assertTrue(service.isGameActive())
-        assertTrue(service.isPlayerMuted(player.uniqueId))
+        verify { chat.mutePlayer(player, config.game.answerTime) }
     }
 
     @Test
@@ -143,8 +142,8 @@ class TriviaServiceTest {
         service.startGame()
 
         val player = mockPlayer()
-        service.checkAnswer(player, wrongLetter(question)) // wrong, still active
-        val second = service.checkAnswer(player, wrongLetter(question)) // try again
+        service.checkAnswer(player, wrongLetter(question))
+        val second = service.checkAnswer(player, wrongLetter(question))
 
         assertEquals(TriviaService.AnswerResult.ALREADY_ANSWERED, second)
     }
@@ -172,7 +171,7 @@ class TriviaServiceTest {
 
         val result = service.checkAnswer(player, wrongLetter(question))
         assertEquals(TriviaService.AnswerResult.WRONG, result)
-        assertFalse(service.isPlayerMuted(player.uniqueId))
+        verify(exactly = 0) { chat.mutePlayer(any(), any()) }
     }
 
     @Test
@@ -186,8 +185,6 @@ class TriviaServiceTest {
         assertEquals("What is the capital?", service.currentQuestion?.question)
     }
 
-
-    /** Returns a letter that is NOT the correct answer. */
     private fun wrongLetter(question: Question): String {
         val correct = question.correctAnswerLetter.lowercase()[0]
         return if (correct == 'a') "b" else "a"
