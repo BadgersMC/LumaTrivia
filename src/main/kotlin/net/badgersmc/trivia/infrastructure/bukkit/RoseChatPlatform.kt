@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class RoseChatPlatform(private val channelName: String) : ChatPlatform {
 
-    /** Track trivia-muted players so clearMutes() mirrors Vanilla behaviour. */
+    /** Players muted by trivia — only these are cleared on round end. */
     private val triviaMuted: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
 
     override fun isMuted(player: Player): Boolean {
@@ -27,14 +27,17 @@ class RoseChatPlatform(private val channelName: String) : ChatPlatform {
 
     override fun mutePlayer(player: Player, durationSeconds: Int) {
         val data = RosePlayer(player).playerData ?: return
+        // Never override an existing admin mute
+        if (data.isMuted && !triviaMuted.contains(player.uniqueId)) return
         val expiry = System.currentTimeMillis() + (durationSeconds * 1000L)
         data.mute(expiry)
         triviaMuted.add(player.uniqueId)
     }
 
     override fun unmutePlayer(player: Player) {
+        // Only unmute if WE muted them — don't strip admin mutes
+        if (!triviaMuted.remove(player.uniqueId)) return
         RosePlayer(player).playerData?.unmute()
-        triviaMuted.remove(player.uniqueId)
     }
 
     override fun clearMutes() {

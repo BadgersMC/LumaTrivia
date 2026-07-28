@@ -14,6 +14,9 @@ game:
   cooldown: "<prefix><shadow:#000000:1><red>Please wait <time> seconds before starting another game</red></shadow>"
   already_active: "<prefix><shadow:#000000:1><red>A game is already active!</red></shadow>"
   no_questions: "<prefix><shadow:#000000:1><red>No questions available. Try again in a moment.</red></shadow>"
+  hint:
+    letters: "<prefix><shadow:#000000:1><yellow>Type <first>, <last>, etc. to answer!</yellow></shadow>"
+    truefalse: "<prefix><shadow:#000000:1><yellow>Type <white>true</white> or <white>false</white> to answer!</yellow></shadow>"
 
 mute:
   muted: "<prefix><shadow:#000000:1><red>You are muted until this trivia game ends!</red></shadow>"
