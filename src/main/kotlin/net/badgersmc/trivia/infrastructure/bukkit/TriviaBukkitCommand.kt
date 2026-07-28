@@ -4,8 +4,6 @@ import net.badgersmc.nexus.i18n.LangService
 import net.badgersmc.trivia.application.StatsService
 import net.badgersmc.trivia.application.TriviaService
 import net.badgersmc.trivia.infrastructure.di.ServiceModule
-import net.kyori.adventure.text.Component
-import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.command.Command
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
@@ -107,8 +105,12 @@ class TriviaBukkitCommand(
             sender.sendMessage(lang.msg("error.no_permission"))
             return
         }
-        services.reloadConfig()
-        triviaService.updateConfig(services.config)
+        val newConfig = services.reloadConfig()
+        triviaService.updateConfig(newConfig)
+        // Rebuild fetcher reference in trivia service (fetcher was recreated in ServiceModule)
+        triviaService.fetcher = services.questionFetcher
+        // Rebuild schedule task from new config
+        services.plugin.recreateScheduleTask()
         sender.sendMessage(lang.msg("commands.reload"))
     }
 

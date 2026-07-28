@@ -25,14 +25,32 @@ class ServiceModule(val plugin: LumaTriviaPlugin) {
         LangService(plugin, Locale("en_US"), LumaTriviaLang::class.java)
     }
 
-    val config: TriviaConfig by lazy { loadConfig() }
+    // Mutable config — set by loadConfig() at init and reloadConfig() at runtime
+    lateinit var config: TriviaConfig
+        private set
 
-    /** Reload config from disk and return the new instance. */
-    fun reloadConfig(): TriviaConfig {
-        val newConfig = loadConfig()
-        // Update the lazy delegate — we can't replace lazy, so we store it
-        return newConfig
+    init {
+        loadConfig()
     }
+
+    /** Reload config from disk, rebuild dependent components. Returns new config. */
+    fun reloadConfig(): TriviaConfig {
+        loadConfig()
+        // Rebuild all config-dependent components (lazy vals capture old config at first access)
+        rebuildConfigDependentComponents()
+        return config
+    }
+
+    // Config-dependent components — rebuilt on reload
+    var contentFilter: ContentFilter = ContentFilter(config.contentFilter)
+        private set
+    var httpClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(config.api.timeoutMs, TimeUnit.MILLISECONDS)
+        .readTimeout(config.api.timeoutMs, TimeUnit.MILLISECONDS)
+        .build()
+        private set
+    var questionFetcher: QuestionFetcher = QuestionFetcher(httpClient, config.api.url, config.api.batchSize, contentFilter)
+        private set
 
     val databaseFactory: DatabaseFactory by lazy {
         DatabaseFactory(plugin.dataFolder, config.storage.file)
@@ -40,21 +58,6 @@ class ServiceModule(val plugin: LumaTriviaPlugin) {
 
     val statsRepository: StatsRepository by lazy {
         SqliteStatsRepository(databaseFactory)
-    }
-
-    val contentFilter: ContentFilter by lazy {
-        ContentFilter(config.contentFilter)
-    }
-
-    val httpClient: OkHttpClient by lazy {
-        OkHttpClient.Builder()
-            .connectTimeout(config.api.timeoutMs, TimeUnit.MILLISECONDS)
-            .readTimeout(config.api.timeoutMs, TimeUnit.MILLISECONDS)
-            .build()
-    }
-
-    val questionFetcher: QuestionFetcher by lazy {
-        QuestionFetcher(httpClient, config.api.url, config.api.batchSize, contentFilter)
     }
 
     val statsService: StatsService by lazy {
@@ -69,6 +72,15 @@ class ServiceModule(val plugin: LumaTriviaPlugin) {
         ChatListener(triviaService, lang)
     }
 
+    private fun rebuildConfigDependentComponents() {
+        contentFilter = ContentFilter(config.contentFilter)
+        httpClient = OkHttpClient.Builder()
+            .connectTimeout(config.api.timeoutMs, TimeUnit.MILLISECONDS)
+            .readTimeout(config.api.timeoutMs, TimeUnit.MILLISECONDS)
+            .build()
+        questionFetcher = QuestionFetcher(httpClient, config.api.url, config.api.batchSize, contentFilter)
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun loadConfig(): TriviaConfig {
         val configFile = File(plugin.dataFolder, "config.yml")
@@ -77,7 +89,7 @@ class ServiceModule(val plugin: LumaTriviaPlugin) {
             plugin.saveResource("config.yml", false)
         }
 
-        return try {
+        config = try {
             val yaml = Yaml()
             val data: Map<String, Any> = yaml.load(configFile.reader()) as Map<String, Any>
 
@@ -144,5 +156,6 @@ class ServiceModule(val plugin: LumaTriviaPlugin) {
                 storage = StorageConfig("sqlite", "stats.db"),
             )
         }
+        return config
     }
 }

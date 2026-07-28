@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap
 class TriviaService(
     private val plugin: JavaPlugin,
     private var config: TriviaConfig,
-    private val fetcher: QuestionFetcher,
+    var fetcher: QuestionFetcher,
     private val statsRepo: StatsRepository,
     private val scheduler: NexusScheduler,
 ) {
@@ -27,8 +27,11 @@ class TriviaService(
 
     /** Callback for broadcasting MiniMessage to all players. */
     var broadcast: ((message: Component) -> Unit)? = null
-    /** Callback for fetching questions asynchronously. */
+    /** Callback for fetching questions asynchronously (called when cache is empty). */
     var fetchCallback: (() -> Unit)? = null
+
+    /** Guard against concurrent fetch-then-start cycles. */
+    private var fetching: Boolean = false
 
     private var gameActive: Boolean = false
     private var gameTaskId: Int = -1
@@ -55,7 +58,10 @@ class TriviaService(
 
         // If cache is empty, trigger async fetch and fail gracefully
         if (fetcher.isEmpty) {
-            fetchCallback?.invoke()
+            if (!fetching) {
+                fetching = true
+                fetchCallback?.invoke()
+            }
             return false
         }
 
