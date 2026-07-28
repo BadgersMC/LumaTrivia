@@ -2,7 +2,10 @@ package net.badgersmc.trivia.infrastructure.bukkit
 
 import dev.rosewood.rosechat.message.RosePlayer
 import net.badgersmc.trivia.application.ChatPlatform
+import org.bukkit.Bukkit
 import org.bukkit.entity.Player
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * RoseChat integration: uses RoseChat's mute and channel APIs for proper
@@ -12,6 +15,9 @@ import org.bukkit.entity.Player
  * ServiceModule only instantiates this when RoseChat is detected at runtime.
  */
 class RoseChatPlatform(private val channelName: String) : ChatPlatform {
+
+    /** Track trivia-muted players so clearMutes() mirrors Vanilla behaviour. */
+    private val triviaMuted: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
 
     override fun isMuted(player: Player): Boolean {
         val data = RosePlayer(player).playerData ?: return false
@@ -23,10 +29,22 @@ class RoseChatPlatform(private val channelName: String) : ChatPlatform {
         val data = RosePlayer(player).playerData ?: return
         val expiry = System.currentTimeMillis() + (durationSeconds * 1000L)
         data.mute(expiry)
+        triviaMuted.add(player.uniqueId)
     }
 
     override fun unmutePlayer(player: Player) {
         RosePlayer(player).playerData?.unmute()
+        triviaMuted.remove(player.uniqueId)
+    }
+
+    override fun clearMutes() {
+        for (uuid in triviaMuted) {
+            val player = Bukkit.getPlayer(uuid)
+            if (player != null && player.isOnline) {
+                RosePlayer(player).playerData?.unmute()
+            }
+        }
+        triviaMuted.clear()
     }
 
     override fun isAnswerChat(player: Player, rawMessage: String): Boolean {
@@ -36,10 +54,5 @@ class RoseChatPlatform(private val channelName: String) : ChatPlatform {
 
     override fun extractAnswer(rawMessage: String): String? {
         return rawMessage.takeIf { it.isNotBlank() }
-    }
-
-    override fun clearMutes() {
-        // RoseChat mutes are per-player with expiry — they expire naturally.
-        // No bulk clear needed; individual unmutes happen on demand.
     }
 }
