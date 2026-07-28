@@ -1,5 +1,8 @@
 package net.badgersmc.trivia.domain
 
+import java.util.regex.PatternSyntaxException
+import java.util.logging.Logger
+
 /** A trivia question with shuffled multiple-choice answers. */
 class Question(
     val question: String,
@@ -15,6 +18,9 @@ class Question(
     /** Index of [correctAnswer] within [shuffledAnswers]. */
     private val correctAnswerIndex: Int
 
+    /** Number of answer options (2 for boolean, variable for multiple choice). */
+    val answerCount: Int get() = shuffledAnswers.size
+
     init {
         val all = mutableListOf<String>()
         all.addAll(incorrectAnswers)
@@ -26,25 +32,26 @@ class Question(
 
     /**
      * Validates a player's answer. Accepts:
-     * - Single letter a/b/c/d (case-insensitive) mapping to shuffled answer index
-     * - t/f/true/false for boolean questions (maps to A/B)
+     * - Single letter a/b/c/... (case-insensitive) mapping to shuffled answer index
+     * - t/f/true/false for boolean questions
      * - Direct text match (case-insensitive)
      */
     fun isCorrectAnswer(answer: String): Boolean {
         val normalized = answer.trim().lowercase()
 
-        // True/false questions
+        // True/false questions — also accept a/b letters since UI renders A/B
         if (type.equals("boolean", ignoreCase = true)) {
             val mapped = when (normalized) {
-                "t", "true" -> "true"
-                "f", "false" -> "false"
-                else -> normalized
+                "a", "t", "true" -> "true"
+                "b", "f", "false" -> "false"
+                else -> return normalized.equals(correctAnswer, ignoreCase = true)
             }
-            return correctAnswer.equals(mapped, ignoreCase = true)
+            return mapped.equals(correctAnswer, ignoreCase = true)
         }
 
-        // Single-letter answers
-        if (normalized.length == 1 && normalized[0] in 'a'..'d') {
+        // Single-letter answers — bound dynamically to actual answer count
+        val maxLetter = 'a' + (shuffledAnswers.size - 1)
+        if (normalized.length == 1 && normalized[0] in 'a'..maxLetter) {
             val index = normalized[0] - 'a'
             return index == correctAnswerIndex
         }
@@ -73,7 +80,7 @@ class Question(
             return sb.toString()
         }
 
-    /** Returns the letter (A-D or A/B) of the correct answer. */
+    /** Returns the letter (A-Z) of the correct answer. */
     val correctAnswerLetter: String
         get() {
             if (type.equals("boolean", ignoreCase = true)) {

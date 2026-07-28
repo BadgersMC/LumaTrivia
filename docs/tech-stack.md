@@ -15,7 +15,7 @@ This is a **greenfield rewrite** of the existing Java LumaTrivia plugin (v1.0.1)
 | Layer | Language / Tool | Min version | Reason |
 |---|---|---|---|
 | Plugin | Kotlin | 2.1.0 | Concise domain model, null safety |
-| Build tool | Gradle (Kotlin DSL) + Shadow | 8.x / 8.3.5 | Standard for Paper plugins; Shadow relocates Nexus + OkHttp + Gson |
+| Build tool | Gradle (Kotlin DSL) + Shadow | 8.x / 8.3.5 | Standard for Paper plugins; only Nexus core is shaded — OkHttp, Gson, SQLite, HikariCP, and Exposed are runtime-resolved via NexusPaperPluginLoader |
 | Test framework | JUnit 5 + MockK + MockBukkit | 5.10.0 / 1.13.10 / 3.127.0 | Idiomatic Kotlin tests + Bukkit-API simulation |
 | DI + Scheduler + i18n | **Nexus** (nexus-core + nexus-paper + nexus-scheduler + nexus-i18n + nexus-paper-loader) | v2.1.1 | Internal BadgersMC framework |
 | Config loading | SnakeYAML (bundled with Bukkit) | — | EV-style manual config parsing |
@@ -27,19 +27,15 @@ This is a **greenfield rewrite** of the existing Java LumaTrivia plugin (v1.0.1)
 ## 3. Runtime dependencies
 
 | Package | Version | Why |
-|---|---|---|
+|---|---|---|---|
 | io.papermc.paper:paper-api | 1.21.11-R0.1-SNAPSHOT | Server API (compileOnly) |
-| com.github.BadgersMC.Nexus:nexus-core | v2.1.1 | DI container (shaded, relocated) |
-| com.github.BadgersMC.Nexus:nexus-paper | v2.1.1 | Paper command registration utilities (shaded, relocated) |
-| com.github.BadgersMC.Nexus:nexus-scheduler | v2.1.1 | NexusScheduler — auto-cancel on disable (shaded, relocated) |
-| com.github.BadgersMC.Nexus:nexus-i18n | v2.1.1 | LangService + @LangFile marker (shaded, relocated) |
-| com.github.BadgersMC.Nexus:nexus-paper-loader | v2.1.1 | NexusPaperPluginLoader base class (shaded, relocated) |
-| com.squareup.okhttp3:okhttp | 4.12.0 | HTTP client (shaded) |
-| com.google.code.gson:gson | 2.10.1 | JSON parsing (shaded) |
-| org.xerial:sqlite-jdbc | 3.45.1.0 | SQLite driver (shaded) |
-| com.zaxxer:HikariCP | 5.1.0 | Connection pool (shaded) |
-| org.jetbrains.exposed:exposed-* | 0.55.0 | ORM (shaded) |
-| net.kyori:adventure-* | 4.17.0 | Chat components + MiniMessage (compileOnly, Paper) |
+| com.github.BadgersMC.Nexus:nexus-core..nexus-paper-loader | v2.1.1 | DI, commands, scheduler, i18n, loader (shaded, NOT relocated — Kotlin @Metadata breaks) |
+| com.squareup.okhttp3:okhttp | 4.12.0 | HTTP client (runtime-resolved by loader) |
+| com.google.code.gson:gson | 2.10.1 | JSON parsing (runtime-resolved by loader) |
+| org.xerial:sqlite-jdbc | 3.45.1.0 | SQLite driver (runtime-resolved by loader) |
+| com.zaxxer:HikariCP | 5.1.0 | Connection pool (runtime-resolved by loader) |
+| org.jetbrains.exposed:exposed-* | 0.55.0 | ORM (runtime-resolved by loader) |
+| net.kyori:adventure-* | 4.17.0 | Chat components + MiniMessage (compileOnly, bundled with Paper) |
 
 ## 4. Versioning
 

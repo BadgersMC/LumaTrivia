@@ -8,17 +8,17 @@ class LumaTriviaPlugin : JavaPlugin() {
     lateinit var services: ServiceModule
         private set
 
+    private var triviaCommand: TriviaBukkitCommand? = null
+
     override fun onEnable() {
         saveDefaultConfig()
         dataFolder.mkdirs()
 
         services = ServiceModule(this)
 
-        // Register command
-        server.commandMap.register(
-            "lumatrivia",
-            TriviaBukkitCommand(services.triviaService, services.statsService, services.lang),
-        )
+        // Register command (stored for unregister on disable)
+        triviaCommand = TriviaBukkitCommand(services.triviaService, services.statsService, services.lang)
+        server.commandMap.register("lumatrivia", triviaCommand!!)
 
         // Register listener
         server.pluginManager.registerEvents(services.chatListener, this)
@@ -33,6 +33,10 @@ class LumaTriviaPlugin : JavaPlugin() {
         if (::services.isInitialized) {
             services.nexusScheduler.cancelAll()
             services.databaseFactory.close()
+        }
+        // Unregister command from command map
+        triviaCommand?.let { cmd ->
+            server.commandMap.knownCommands.values.removeIf { it == cmd }
         }
         logger.info("LumaTrivia disabled")
     }

@@ -4,7 +4,6 @@ import io.papermc.paper.event.player.AsyncChatEvent
 import net.badgersmc.nexus.i18n.LangService
 import net.badgersmc.trivia.application.TriviaService
 import net.kyori.adventure.text.TextComponent
-import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
@@ -22,8 +21,8 @@ class ChatListener(
     fun onChat(event: AsyncChatEvent) {
         val player = event.player
 
-        // Mute enforcement
-        if (triviaService.isPlayerMuted(player.uniqueId)) {
+        // Mute enforcement — check bypass permission
+        if (triviaService.isPlayerMuted(player.uniqueId) && !player.hasPermission("lumatrivia.mute.bypass")) {
             event.isCancelled = true
             player.sendMessage(lang.msg("mute.muted"))
             return
@@ -37,23 +36,24 @@ class ChatListener(
 
         // Valid answer formats: a/b/c/d, t/f/true/false
         val isValidAnswer = when {
-            normalized.length == 1 && normalized[0] in 'a'..'d' -> true
+            normalized.length == 1 && normalized[0] in 'a'..'z' -> true
             normalized.matches(Regex("^(t(rue)?|f(alse)?)$")) -> true
             else -> false
         }
 
         if (isValidAnswer) {
             event.isCancelled = true
-            // Normalize true/false to single letter
             val answer = when {
-                normalized.startsWith("t") -> "a"
-                normalized.startsWith("f") -> "b"
+                normalized.startsWith("t") -> "true"
+                normalized.startsWith("f") -> "false"
                 else -> normalized
             }
             // Process on main thread
             player.server.scheduler.runTask(
                 player.server.pluginManager.getPlugin("LumaTrivia")!!,
                 Runnable {
+                    // Guard: player may have disconnected
+                    if (!player.isOnline) return@Runnable
                     val result = triviaService.checkAnswer(player, answer)
                     when (result) {
                         TriviaService.AnswerResult.CORRECT -> {

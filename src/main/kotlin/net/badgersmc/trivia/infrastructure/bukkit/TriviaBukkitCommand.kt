@@ -3,6 +3,8 @@ package net.badgersmc.trivia.infrastructure.bukkit
 import net.badgersmc.nexus.i18n.LangService
 import net.badgersmc.trivia.application.StatsService
 import net.badgersmc.trivia.application.TriviaService
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.command.Command
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
@@ -29,72 +31,80 @@ class TriviaBukkitCommand(
         }
 
         when (args[0].lowercase()) {
-            "start" -> {
-                if (!sender.hasPermission("lumatrivia.start")) {
-                    sender.sendMessage(lang.msg("error.no_permission"))
-                    return true
-                }
-                val started = triviaService.startGame()
-                if (!started) {
-                    val remaining = triviaService.cooldownRemaining()
-                    if (remaining > 0) {
-                        sender.sendMessage(lang.msg("game.cooldown", "time" to remaining.toString()))
-                    }
-                }
-            }
-            "stats" -> {
-                if (!sender.hasPermission("lumatrivia.use")) {
-                    sender.sendMessage(lang.msg("error.no_permission"))
-                    return true
-                }
-                if (sender !is Player) {
-                    sender.sendMessage(lang.msg("error.player_only"))
-                    return true
-                }
-                val stats = statsService.getStats(sender.uniqueId)
-                if (stats != null) {
-                    sender.sendMessage(
-                        lang.msg(
-                            "commands.stats",
-                            "player" to sender.name,
-                            "total" to stats.totalCorrect.toString(),
-                            "easy" to stats.easyCorrect.toString(),
-                            "medium" to stats.mediumCorrect.toString(),
-                            "hard" to stats.hardCorrect.toString(),
-                            "points" to stats.points.toString(),
-                        )
-                    )
-                } else {
-                    sender.sendMessage(
-                        lang.msg(
-                            "commands.stats",
-                            "player" to sender.name,
-                            "total" to "0", "easy" to "0", "medium" to "0", "hard" to "0", "points" to "0",
-                        )
-                    )
-                }
-            }
-            "top" -> {
-                if (!sender.hasPermission("lumatrivia.use")) {
-                    sender.sendMessage(lang.msg("error.no_permission"))
-                    return true
-                }
-                val top = statsService.getTopPlayers(10)
-                val entries = top.mapIndexed { i, ps ->
-                    "&e${i + 1}. &f${ps.playerName} &7- &6${ps.points} points &7(&f${ps.totalCorrect} correct)"
-                }.joinToString("\n")
-                sender.sendMessage(lang.msg("commands.leaderboard", "leaderboard" to entries))
-            }
-            "reload" -> {
-                if (!sender.hasPermission("lumatrivia.admin")) {
-                    sender.sendMessage(lang.msg("error.no_permission"))
-                    return true
-                }
-                sender.sendMessage(lang.msg("commands.reload"))
-            }
+            "start" -> handleStart(sender)
+            "stats" -> handleStats(sender)
+            "top" -> handleTop(sender)
+            "reload" -> handleReload(sender)
             else -> sendUsage(sender)
         }
         return true
+    }
+
+    private fun handleStart(sender: CommandSender) {
+        if (!sender.hasPermission("lumatrivia.start")) {
+            sender.sendMessage(lang.msg("error.no_permission"))
+            return
+        }
+        if (triviaService.isActive) {
+            sender.sendMessage(lang.msg("game.already_active"))
+            return
+        }
+        val remaining = triviaService.cooldownRemaining()
+        if (remaining > 0) {
+            sender.sendMessage(lang.msg("game.cooldown", "time" to remaining.toString()))
+            return
+        }
+        val started = triviaService.startGame()
+        if (!started) {
+            sender.sendMessage(lang.msg("game.no_questions"))
+        }
+    }
+
+    private fun handleStats(sender: CommandSender) {
+        if (!sender.hasPermission("lumatrivia.use")) {
+            sender.sendMessage(lang.msg("error.no_permission"))
+            return
+        }
+        if (sender !is Player) {
+            sender.sendMessage(lang.msg("error.player_only"))
+            return
+        }
+        val stats = statsService.getStats(sender.uniqueId)
+        sender.sendMessage(
+            lang.msg(
+                "commands.stats",
+                "player" to sender.name,
+                "total" to (stats?.totalCorrect?.toString() ?: "0"),
+                "easy" to (stats?.easyCorrect?.toString() ?: "0"),
+                "medium" to (stats?.mediumCorrect?.toString() ?: "0"),
+                "hard" to (stats?.hardCorrect?.toString() ?: "0"),
+                "points" to (stats?.points?.toString() ?: "0"),
+            )
+        )
+    }
+
+    private fun handleTop(sender: CommandSender) {
+        if (!sender.hasPermission("lumatrivia.use")) {
+            sender.sendMessage(lang.msg("error.no_permission"))
+            return
+        }
+        val top = statsService.getTopPlayers(10)
+        val entries = if (top.isEmpty()) {
+            "<gray>(no players yet)"
+        } else {
+            top.mapIndexed { i, ps ->
+                "<yellow>${i + 1}. <white>${ps.playerName} <gray>- <gold>${ps.points} points <gray>(<white>${ps.totalCorrect} correct<gray>)"
+            }.joinToString("\n")
+        }
+        sender.sendMessage(lang.msg("commands.leaderboard", "leaderboard" to entries))
+    }
+
+    private fun handleReload(sender: CommandSender) {
+        if (!sender.hasPermission("lumatrivia.admin")) {
+            sender.sendMessage(lang.msg("error.no_permission"))
+            return
+        }
+        sender.sendMessage(lang.msg("commands.reload"))
     }
 
     override fun tabComplete(sender: CommandSender, alias: String, args: Array<out String>): List<String> {

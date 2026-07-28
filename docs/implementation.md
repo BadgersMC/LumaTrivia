@@ -12,29 +12,28 @@ LumaTrivia/
 │   ├── domain/             # rules of the game — zero framework imports
 │   │   ├── Question.kt     # Question data class with answer validation
 │   │   └── PlayerStats.kt  # PlayerStats, Comparable by points desc
-│   ├── application/        # use cases — imports domain only
-│   │   ├── TriviaService.kt     # Game lifecycle: start, checkAnswer, timeUp, cooldown, mute
-│   │   ├── QuestionFetcher.kt   # OpenTriviaDB HTTP client + base64 decode + cache
-│   │   ├── ContentFilter.kt     # Regex-based question content filtering
-│   │   └── StatsService.kt      # Thin wrapper around StatsRepository
-│   ├── infrastructure/     # adapters — imports anything
-│   │   ├── bukkit/
-│   │   │   ├── LumaTriviaPlugin.kt    # JavaPlugin entry point
-│   │   │   ├── ChatListener.kt        # AsyncChatEvent handler
-│   │   │   └── TriviaBukkitCommand.kt # Command("trivia") with subcommands
-│   │   ├── config/
-│   │   │   └── TriviaConfig.kt        # Data classes + SnakeYAML loader
-│   │   ├── di/
-│   │   │   └── ServiceModule.kt       # Manual DI via lazy delegates
-│   │   ├── i18n/
-│   │   │   └── LumaTriviaLang.kt      # @LangFile marker
-│   │   └── persistence/
-│   │       ├── DatabaseFactory.kt     # SQLite connection + WAL mode
-│   │       ├── StatsTable.kt          # Exposed table definition
-│   │       ├── StatsRepository.kt     # Interface
-│   │       └── SqliteStatsRepository.kt
-│   └── loader/
-│       └── LumaTriviaLoader.kt    # NexusPaperPluginLoader subclass
+│   │   ├── application/        # use cases — imports domain only
+│   │   │   ├── TriviaService.kt     # Game lifecycle: start, checkAnswer, timeUp, cooldown, mute
+│   │   │   ├── ContentFilter.kt     # Regex-based question content filtering
+│   │   │   └── StatsService.kt      # Thin wrapper around StatsRepository
+│   │   ├── infrastructure/     # adapters — imports anything
+│   │   │   ├── bukkit/
+│   │   │   │   ├── LumaTriviaPlugin.kt    # JavaPlugin entry point
+│   │   │   │   ├── ChatListener.kt        # AsyncChatEvent handler
+│   │   │   │   └── TriviaBukkitCommand.kt # Command("trivia") with subcommands
+│   │   │   ├── config/
+│   │   │   │   └── TriviaConfig.kt        # Data classes + SnakeYAML loader
+│   │   │   ├── di/
+│   │   │   │   └── ServiceModule.kt       # Manual DI via lazy delegates
+│   │   │   ├── i18n/
+│   │   │   │   └── LumaTriviaLang.kt      # @LangFile marker
+│   │   │   └── persistence/
+│   │   │       ├── DatabaseFactory.kt     # SQLite connection + WAL mode
+│   │   │       ├── StatsTable.kt          # Exposed table definition
+│   │   │       ├── StatsRepository.kt     # Interface
+│   │   │       └── SqliteStatsRepository.kt
+│   │   └── loader/
+│   │       └── LumaTriviaLoader.java   # NexusPaperPluginLoader (Java — no kotlin-stdlib at class-load)
 ├── src/main/resources/
 │   ├── paper-plugin.yml
 │   ├── config.yml

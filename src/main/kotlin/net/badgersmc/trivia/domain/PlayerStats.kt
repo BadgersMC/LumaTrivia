@@ -4,8 +4,8 @@ import java.util.UUID
 
 /** Per-player trivia statistics. Sorts by points descending. */
 data class PlayerStats(
-    val playerId: UUID,
-    val playerName: String,
+val playerId: UUID,
+var playerName: String,
     var totalCorrect: Int = 0,
     var easyCorrect: Int = 0,
     var mediumCorrect: Int = 0,
@@ -13,13 +13,13 @@ data class PlayerStats(
     var points: Int = 0,
 ) : Comparable<PlayerStats> {
 
-    /** Increments counters based on difficulty. Easy=1pt, Medium=2pt, Hard=3pt. */
-    fun addCorrectAnswer(difficulty: String) {
+    /** Increments counters based on difficulty using configurable point values. */
+    fun addCorrectAnswer(difficulty: String, easyPoints: Int = 1, mediumPoints: Int = 2, hardPoints: Int = 3) {
         totalCorrect++
         when (difficulty.lowercase()) {
-            "easy" -> { easyCorrect++; points += 1 }
-            "medium" -> { mediumCorrect++; points += 2 }
-            "hard" -> { hardCorrect++; points += 3 }
+            "easy" -> { easyCorrect++; points += easyPoints }
+            "medium" -> { mediumCorrect++; points += mediumPoints }
+            "hard" -> { hardCorrect++; points += hardPoints }
         }
     }
 

@@ -5,7 +5,6 @@ import net.badgersmc.trivia.domain.PlayerStats
 import net.badgersmc.trivia.domain.Question
 import net.badgersmc.trivia.infrastructure.config.TriviaConfig
 import net.badgersmc.trivia.infrastructure.persistence.StatsRepository
-import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.UUID
@@ -53,9 +52,6 @@ class TriviaService(
         val answerTime = config.game.answerTime
         gameTaskId = plugin.server.scheduler.scheduleSyncDelayedTask(plugin, { timeUp() }, answerTime * 20L)
 
-        // Set cooldown after game ends
-        cooldownUntil = System.currentTimeMillis() + (config.game.cooldown * 1000L)
-
         return true
     }
 
@@ -102,13 +98,22 @@ class TriviaService(
             gameTaskId = -1
         }
         mutedPlayers.clear()
+        // Cooldown starts when game ends, not when it starts
+        cooldownUntil = System.currentTimeMillis() + (config.game.cooldown * 1000L)
     }
 
     private fun recordWin(player: Player, question: Question) {
         val playerId = player.uniqueId
         val existing = statsRepo.findByPlayerId(playerId)
         val stats = existing ?: PlayerStats(playerId, player.name)
-        stats.addCorrectAnswer(question.difficulty)
+        // Always refresh player name from current identity
+        stats.playerName = player.name
+        val pts = config.rewards[question.difficulty.lowercase()]?.points ?: (
+            when (question.difficulty.lowercase()) {
+                "hard" -> 3; "medium" -> 2; else -> 1
+            }
+        )
+        stats.addCorrectAnswer(question.difficulty, hardPoints = pts)
         statsRepo.save(stats)
     }
 
