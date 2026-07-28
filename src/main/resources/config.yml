@@ -10,6 +10,7 @@ api:
 game:
   answer-time: 30
   cooldown: 300
+  channel: "global"
   mute-incorrect:
     enabled: true
   schedule:

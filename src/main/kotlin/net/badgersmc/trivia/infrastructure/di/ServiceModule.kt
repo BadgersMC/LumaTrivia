@@ -6,12 +6,15 @@ import net.badgersmc.nexus.scheduler.NexusScheduler
 import net.badgersmc.trivia.application.*
 import net.badgersmc.trivia.infrastructure.bukkit.ChatListener
 import net.badgersmc.trivia.infrastructure.bukkit.LumaTriviaPlugin
+import net.badgersmc.trivia.infrastructure.bukkit.RoseChatPlatform
+import net.badgersmc.trivia.infrastructure.bukkit.VanillaChatPlatform
 import net.badgersmc.trivia.infrastructure.config.*
 import net.badgersmc.trivia.infrastructure.i18n.LumaTriviaLang
 import net.badgersmc.trivia.infrastructure.persistence.DatabaseFactory
 import net.badgersmc.trivia.infrastructure.persistence.SqliteStatsRepository
 import net.badgersmc.trivia.infrastructure.persistence.StatsRepository
 import okhttp3.OkHttpClient
+import org.bukkit.Bukkit
 import org.yaml.snakeyaml.Yaml
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -65,11 +68,22 @@ class ServiceModule(val plugin: LumaTriviaPlugin) {
     }
 
     val triviaService: TriviaService by lazy {
-        TriviaService(plugin, config, questionFetcher, statsRepository, nexusScheduler)
+        TriviaService(plugin, config, questionFetcher, statsRepository, nexusScheduler, chatPlatform)
+    }
+
+    val chatPlatform: ChatPlatform by lazy {
+        val channel = config.game.channel
+        if (Bukkit.getPluginManager().getPlugin("RoseChat") != null) {
+            plugin.logger.info("RoseChat detected — using channel-scoped chat platform (channel: $channel)")
+            RoseChatPlatform(channel)
+        } else {
+            plugin.logger.info("Using vanilla chat platform")
+            VanillaChatPlatform(plugin)
+        }
     }
 
     val chatListener: ChatListener by lazy {
-        ChatListener(triviaService, lang)
+        ChatListener(triviaService, lang, chatPlatform)
     }
 
     private fun rebuildConfigDependentComponents() {
@@ -116,10 +130,11 @@ class ServiceModule(val plugin: LumaTriviaPlugin) {
                     cooldown = (g["cooldown"] as? Number)?.toInt() ?: 300,
                     muteIncorrect = mute,
                     schedule = schedule,
+                    channel = g["channel"]?.toString() ?: "global",
                     categories = (g["categories"] as? List<*>)?.mapNotNull { (it as? Number)?.toInt() } ?: emptyList(),
                     difficulties = (g["difficulties"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList(),
                 )
-            } ?: GameConfig(30, 300, MuteIncorrectConfig(true), ScheduleConfig(false, emptyList()), emptyList(), emptyList())
+            } ?: GameConfig(30, 300, MuteIncorrectConfig(true), ScheduleConfig(false, emptyList()), "global", emptyList(), emptyList())
 
             val rewards: Map<String, RewardConfig> = (data["rewards"] as? Map<String, Any>)?.mapValues { (_, v) ->
                 val r = v as? Map<String, Any> ?: return@mapValues RewardConfig(emptyList(), 0)
@@ -150,7 +165,7 @@ class ServiceModule(val plugin: LumaTriviaPlugin) {
             plugin.logger.warning("Failed to load config.yml: ${e.message}, using defaults")
             TriviaConfig(
                 api = ApiConfig("https://opentdb.com/api.php", 24, 10000),
-                game = GameConfig(30, 300, MuteIncorrectConfig(true), ScheduleConfig(false, emptyList()), emptyList(), emptyList()),
+                game = GameConfig(30, 300, MuteIncorrectConfig(true), ScheduleConfig(false, emptyList()), "global", emptyList(), emptyList()),
                 rewards = emptyMap(),
                 contentFilter = ContentFilterConfig(true, true, emptyList(), ""),
                 storage = StorageConfig("sqlite", "stats.db"),

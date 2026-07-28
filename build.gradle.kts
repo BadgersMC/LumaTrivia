@@ -46,6 +46,9 @@ dependencies {
     compileOnly("net.kyori:adventure-api:4.17.0")
     compileOnly("net.kyori:adventure-text-minimessage:4.17.0")
 
+    // RoseChat (optional compileOnly — softdepend at runtime)
+    compileOnly(files("libs/RoseChat-RC-2.jar"))
+
     // Testing
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")

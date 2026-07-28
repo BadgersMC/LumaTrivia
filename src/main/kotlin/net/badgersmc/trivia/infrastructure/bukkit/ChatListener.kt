@@ -2,6 +2,7 @@ package net.badgersmc.trivia.infrastructure.bukkit
 
 import io.papermc.paper.event.player.AsyncChatEvent
 import net.badgersmc.nexus.i18n.LangService
+import net.badgersmc.trivia.application.ChatPlatform
 import net.badgersmc.trivia.application.TriviaService
 import net.kyori.adventure.text.TextComponent
 import org.bukkit.event.EventHandler
@@ -10,31 +11,39 @@ import org.bukkit.event.Listener
 
 /**
  * Single listener for mute enforcement and answer parsing (REQ-019).
- * Handles everything at LOWEST priority to block muted chat before any other plugin sees it.
+ * Delegates mute control and channel validation to [ChatPlatform].
+ *
+ * On vanilla Paper: cancels AsyncChatEvent at LOWEST priority.
+ * On RoseChat: mute only enforced for the trivia channel; other channels are untouched.
  */
 class ChatListener(
     private val triviaService: TriviaService,
     private val lang: LangService,
+    private val chatPlatform: ChatPlatform,
 ) : Listener {
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     fun onChat(event: AsyncChatEvent) {
         val player = event.player
 
-        // Mute enforcement — check bypass permission
-        if (triviaService.isPlayerMuted(player.uniqueId) && !player.hasPermission("lumatrivia.mute.bypass")) {
+        // Only active during a game
+        if (!triviaService.isActive) return
+
+        val content = (event.message() as? TextComponent)?.content() ?: return
+
+        // Channel/platform check first — only trivia-channel messages proceed
+        if (!chatPlatform.isAnswerChat(player, content)) return
+        val answer = chatPlatform.extractAnswer(content) ?: return
+
+        // Mute enforcement — only blocks trivia-channel answers
+        if (chatPlatform.isMuted(player) && !player.hasPermission("lumatrivia.mute.bypass")) {
             event.isCancelled = true
             player.sendMessage(lang.msg("mute.muted"))
             return
         }
 
-        // Answer parsing — only when game is active
-        if (!triviaService.isActive) return
-
-        val content = (event.message() as? TextComponent)?.content() ?: return
-        val normalized = content.trim().lowercase()
-
-        // Valid answer formats: single letter bound to actual option count, or t/f/true/false
+        // Valid answer formats: single letter or t/f/true/false
+        val normalized = answer.trim().lowercase()
         val question = triviaService.currentQuestion ?: return
         val maxLetter = 'a' + (question.answerCount - 1)
         val isValidAnswer = when {
@@ -45,17 +54,16 @@ class ChatListener(
 
         if (isValidAnswer) {
             event.isCancelled = true
-            val answer = when {
+            val mapped = when {
                 normalized.startsWith("t") -> "true"
                 normalized.startsWith("f") -> "false"
                 else -> normalized
             }
-            // Process on main thread
             player.server.scheduler.runTask(
                 player.server.pluginManager.getPlugin("LumaTrivia")!!,
                 Runnable {
                     if (!player.isOnline) return@Runnable
-                    val result = triviaService.checkAnswer(player, answer)
+                    val result = triviaService.checkAnswer(player, mapped)
                     when (result) {
                         TriviaService.AnswerResult.CORRECT -> {
                             val q = triviaService.currentQuestion ?: return@Runnable
@@ -76,7 +84,7 @@ class ChatListener(
                                     "answer" to content,
                                 )
                             )
-                            if (triviaService.isPlayerMuted(player.uniqueId)) {
+                            if (chatPlatform.isMuted(player)) {
                                 player.sendMessage(lang.msg("mute.muted"))
                             }
                         }
