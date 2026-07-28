@@ -1,8 +1,9 @@
 name: LumaTrivia
 version: '${version}'
-main: net.lumalyte.trivia.TriviaPlugin
-api-version: '1.20'
-authors: ['BadgersMC', 'Lumalyte']
+main: net.badgersmc.trivia.infrastructure.bukkit.LumaTriviaPlugin
+loader: net.badgersmc.trivia.loader.LumaTriviaLoader
+api-version: '1.21'
+authors: [BadgersMC]
 description: A trivia game plugin using OpenTriviaDB
 website: https://github.com/BadgersMC
 
@@ -18,4 +19,7 @@ permissions:
     default: op
     children:
       lumatrivia.start: true
-      lumatrivia.use: true 
+      lumatrivia.use: true
+  lumatrivia.mute.bypass:
+    description: Exempt from wrong-answer muting
+    default: op

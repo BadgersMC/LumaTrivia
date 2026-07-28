@@ -1,0 +1,34 @@
+# LumaTrivia — en_US locale.
+# All values are MiniMessage strings. Placeholders use <name> syntax.
+
+prefix: "<gradient:#FF7272:#FFC976><shadow:#000000:1>[Tri</shadow></gradient><#FFC976><shadow:#000000:1>via]</shadow></#FFC976> "
+
+game:
+  start: "<prefix><shadow:#000000:1><yellow>A new trivia question has been asked!</yellow></shadow>"
+  question: "<prefix><shadow:#000000:1><aqua><question></aqua></shadow>"
+  options: "<prefix><shadow:#000000:1><yellow><bold>Options:</bold></yellow>\n<answers></shadow>"
+  correct_answer: "<prefix><shadow:#000000:1><green><player> got it right!</green> <gray>The answer was:</gray> <gold><answer></gold> <dark_gray>(<letter>)</dark_gray></shadow>"
+  wrong_answer: "<prefix><shadow:#000000:1><red><player> guessed <answer></red> <gray>— that's not correct!</gray></shadow>"
+  already_answered: "<prefix><shadow:#000000:1><red>You've already answered this question!</red></shadow>"
+  time_up: "<prefix><shadow:#000000:1><red>Time's up!</red> <gray>The correct answer was:</gray> <gold><answer></gold> <dark_gray>(<letter>)</dark_gray></shadow>"
+  cooldown: "<prefix><shadow:#000000:1><red>Please wait <time> seconds before starting another game</red></shadow>"
+  already_active: "<prefix><shadow:#000000:1><red>A game is already active!</red></shadow>"
+  no_questions: "<prefix><shadow:#000000:1><red>No questions available. Try again in a moment.</red></shadow>"
+
+mute:
+  muted: "<prefix><shadow:#000000:1><red>You are muted until this trivia game ends!</red></shadow>"
+  unmuted: "<prefix><shadow:#000000:1><green>You are no longer muted!</green></shadow>"
+
+commands:
+  stats: "<prefix><shadow:#000000:1><yellow>Stats for <player></yellow>\n<gray>Total Correct:</gray> <white><total></white>\n<gray>Easy:</gray> <green><easy></green>\n<gray>Medium:</gray> <yellow><medium></yellow>\n<gray>Hard:</gray> <red><hard></red>\n<gray>Points:</gray> <gold><points></gold></shadow>"
+  leaderboard: "<prefix><shadow:#000000:1><gold>Top Players:</gold>\n<leaderboard></shadow>"
+  reload: "<prefix><shadow:#000000:1><green>Configuration reloaded successfully!</green></shadow>"
+  usage_header: "<prefix><shadow:#000000:1><gold>=== LumaTrivia Commands ===</gold></shadow>"
+  usage_start: "<prefix><shadow:#000000:1><yellow>/trivia start</yellow> <gray>— Start a new trivia game</gray></shadow>"
+  usage_stats: "<prefix><shadow:#000000:1><yellow>/trivia stats</yellow> <gray>— View your trivia stats</gray></shadow>"
+  usage_top: "<prefix><shadow:#000000:1><yellow>/trivia top</yellow> <gray>— View the leaderboard</gray></shadow>"
+  usage_reload: "<prefix><shadow:#000000:1><yellow>/trivia reload</yellow> <gray>— Reload the configuration</gray></shadow>"
+
+error:
+  no_permission: "<prefix><shadow:#000000:1><red>You don't have permission to use this command!</red></shadow>"
+  player_only: "<prefix><shadow:#000000:1><red>This command can only be used by players!</red></shadow>"
