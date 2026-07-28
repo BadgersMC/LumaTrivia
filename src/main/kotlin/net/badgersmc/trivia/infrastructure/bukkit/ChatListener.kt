@@ -99,6 +99,16 @@ class ChatListener(
                     }
                 }
             )
+        } else {
+            // Invalid format — cancel the message and give a hint
+            event.isCancelled = true
+            val hint = if (question.answerCount == 2 && question.type == "boolean") {
+                lang.msg("game.hint.truefalse")
+            } else {
+                val last = 'a' + (question.answerCount - 1)
+                lang.msg("game.hint.letters", "first" to "a", "last" to last.toString())
+            }
+            player.sendMessage(hint)
         }
     }
 }
