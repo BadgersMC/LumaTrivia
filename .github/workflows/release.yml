@@ -2,8 +2,7 @@ name: release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
 
 jobs:
   release:
@@ -22,20 +21,39 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      - name: Bump version
+        id: bump
+        run: |
+          LATEST=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)
+          if [ -z "$LATEST" ]; then
+            BASE=$(grep -oP 'version\\s*=\\s*findProperty.*\\?\\s*:\\s*"\\K[^"]+' build.gradle.kts)
+            MAJOR=$(echo "$BASE" | cut -d. -f1)
+            MINOR=$(echo "$BASE" | cut -d. -f2)
+            PATCH=$(echo "$BASE" | cut -d. -f3)
+          else
+            VER="${LATEST#v}"
+            MAJOR=$(echo "$VER" | cut -d. -f1)
+            MINOR=$(echo "$VER" | cut -d. -f2)
+            PATCH=$(echo "$VER" | cut -d. -f3)
+          fi
+          NEXT="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          echo "Latest tag: ${LATEST:-none}, bumping to v$NEXT"
+          echo "version=$NEXT" >> "$GITHUB_OUTPUT"
+
       - name: Run tests
         run: ./gradlew test --no-daemon
 
       - name: Build shadowJar
         env:
-          RELEASE_VERSION: ${{ github.ref_name }}
+          RELEASE_VERSION: ${{ steps.bump.outputs.version }}
         run: ./gradlew shadowJar --no-daemon -PreleaseVersion="$RELEASE_VERSION"
 
       - name: Create Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: LumaTrivia ${{ github.ref_name }}
-          files: build/libs/LumaTrivia-${{ github.ref_name }}.jar
+          tag_name: v${{ steps.bump.outputs.version }}
+          name: LumaTrivia v${{ steps.bump.outputs.version }}
+          files: build/libs/LumaTrivia-${{ steps.bump.outputs.version }}.jar
           generate_release_notes: true
           fail_on_unmatched_files: true
           make_latest: true
