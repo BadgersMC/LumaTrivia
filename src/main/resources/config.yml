@@ -145,15 +145,15 @@ game:
 rewards:
   easy:
     commands:
-      - "eco give %player% 100"
+      - "give %player% raw_gold 5"
     points: 1
   medium:
     commands:
-      - "eco give %player% 250"
+      - "give %player% raw_gold 10"
     points: 2
   hard:
     commands:
-      - "eco give %player% 500"
+      - "give %player% raw_gold 15"
     points: 3
 
 # Content Filter Settings
