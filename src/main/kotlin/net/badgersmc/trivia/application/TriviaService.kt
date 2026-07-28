@@ -65,6 +65,14 @@ class TriviaService(
         fetching = false
     }
 
+    /** Start initial async cache fill via guarded path (prevents concurrent fetches). */
+    fun startPrewarm() {
+        if (!fetching) {
+            fetching = true
+            fetchCallback?.invoke()
+        }
+    }
+
     /** Start a trivia game. Returns true if the game was started. */
     fun startGame(): Boolean {
         if (gameActive) return false

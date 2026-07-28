@@ -2,6 +2,7 @@ package net.badgersmc.trivia.infrastructure.bukkit
 
 import net.badgersmc.trivia.infrastructure.di.ServiceModule
 import org.bukkit.plugin.java.JavaPlugin
+import java.util.logging.Level
 
 class LumaTriviaPlugin : JavaPlugin() {
 
@@ -22,23 +23,15 @@ class LumaTriviaPlugin : JavaPlugin() {
             server.broadcast(component)
         }
 
-        // Wire async fetch callback — fetch questions then try auto-start
+        // Wire async fetch callback — fetch with bounded retry on empty cache
         services.triviaService.fetchCallback = {
             server.scheduler.runTaskAsynchronously(this, Runnable {
-                services.questionFetcher.fetchQuestions()
-                server.scheduler.runTask(this, Runnable {
-                    services.triviaService.onFetchDone()
-                    if (!services.questionFetcher.isEmpty && !services.triviaService.isActive) {
-                        services.triviaService.startGame()
-                    }
-                })
+                fetchWithRetry(0)
             })
         }
 
-        // Start async question cache fill
-        server.scheduler.runTaskAsynchronously(this, Runnable {
-            services.questionFetcher.fetchQuestions()
-        })
+        // Start initial cache fill through guarded path
+        services.triviaService.startPrewarm()
 
         // Register command
         triviaCommand = TriviaBukkitCommand(services.triviaService, services.statsService, services.lang, services)
@@ -51,6 +44,40 @@ class LumaTriviaPlugin : JavaPlugin() {
         recreateScheduleTask()
 
         logger.info("LumaTrivia enabled (v${description.version})")
+    }
+
+    /** Fetch questions with up to [MAX_RETRIES] attempts and linear backoff on empty cache. */
+    private fun fetchWithRetry(attempt: Int) {
+        val maxRetries = 3
+        val baseDelay = 5L // seconds
+
+        services.questionFetcher.fetchQuestions()
+
+        if (!services.questionFetcher.isEmpty) {
+            // Got questions — schedule game start on main thread
+            server.scheduler.runTask(this, Runnable {
+                services.triviaService.onFetchDone()
+                if (!services.triviaService.isActive) {
+                    services.triviaService.startGame()
+                }
+            })
+            return
+        }
+
+        // Cache still empty — retry with backoff if not exhausted
+        if (attempt < maxRetries) {
+            val delay = baseDelay * (attempt + 1) // 5, 10, 15 seconds
+            logger.info("Fetch attempt ${attempt + 1} returned no usable questions. Retrying in ${delay}s...")
+            server.scheduler.runTaskLaterAsynchronously(this, Runnable {
+                fetchWithRetry(attempt + 1)
+            }, delay * 20L)
+        } else {
+            // Exhausted retries
+            server.scheduler.runTask(this, Runnable {
+                services.triviaService.onFetchDone()
+            })
+            logger.warning("Failed to fetch questions after ${attempt + 1} attempts")
+        }
     }
 
     /** Cancel and recreate the schedule repeating task from current config. */
