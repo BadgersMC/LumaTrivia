@@ -26,13 +26,12 @@ class LumaTriviaPlugin : JavaPlugin() {
         services.triviaService.fetchCallback = {
             server.scheduler.runTaskAsynchronously(this, Runnable {
                 services.questionFetcher.fetchQuestions()
-                if (!services.questionFetcher.isEmpty) {
-                    server.scheduler.runTask(this, Runnable {
-                        if (!services.triviaService.isActive) {
-                            services.triviaService.startGame()
-                        }
-                    })
-                }
+                server.scheduler.runTask(this, Runnable {
+                    services.triviaService.onFetchDone()
+                    if (!services.questionFetcher.isEmpty && !services.triviaService.isActive) {
+                        services.triviaService.startGame()
+                    }
+                })
             })
         }
 

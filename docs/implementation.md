@@ -14,6 +14,7 @@ LumaTrivia/
 │   │   └── PlayerStats.kt  # PlayerStats, Comparable by points desc
 │   │   ├── application/        # use cases — imports domain only
 │   │   │   ├── TriviaService.kt     # Game lifecycle: start, checkAnswer, timeUp, cooldown, mute
+│   │   │   ├── QuestionFetcher.kt   # Port: orchestrates fetch, caching, filtering
 │   │   │   ├── ContentFilter.kt     # Regex-based question content filtering
 │   │   │   └── StatsService.kt      # Thin wrapper around StatsRepository
 │   │   ├── infrastructure/     # adapters — imports anything

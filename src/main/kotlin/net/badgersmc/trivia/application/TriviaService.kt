@@ -44,11 +44,25 @@ class TriviaService(
     val isActive: Boolean get() = gameActive
 
     fun isGameActive(): Boolean = gameActive
-    fun isPlayerMuted(uuid: UUID): Boolean = mutedPlayers.containsKey(uuid)
+
+    /** Check if player is muted. Automatically expires stale entries. */
+    fun isPlayerMuted(uuid: UUID): Boolean {
+        val expiry = mutedPlayers[uuid] ?: return false
+        if (System.currentTimeMillis() >= expiry) {
+            mutedPlayers.remove(uuid)
+            return false
+        }
+        return true
+    }
 
     /** Update config at runtime (for reload). */
     fun updateConfig(newConfig: TriviaConfig) {
         config = newConfig
+    }
+
+    /** Called by the plugin after async fetch completes, regardless of outcome. */
+    fun onFetchDone() {
+        fetching = false
     }
 
     /** Start a trivia game. Returns true if the game was started. */
@@ -56,7 +70,6 @@ class TriviaService(
         if (gameActive) return false
         if (System.currentTimeMillis() < cooldownUntil) return false
 
-        // If cache is empty, trigger async fetch and fail gracefully
         if (fetcher.isEmpty) {
             if (!fetching) {
                 fetching = true
@@ -68,13 +81,12 @@ class TriviaService(
         val question = fetcher.poll() ?: return false
         currentQuestionData = question
         answeredPlayers.clear()
-        mutedPlayers.clear()
         gameActive = true
 
-        // Broadcast game start + question + options
+        // Broadcast game start + question (escaped) + options
         val mm = MiniMessage.miniMessage()
         broadcast?.invoke(mm.deserialize("<yellow>A new trivia question has been asked!</yellow>"))
-        broadcast?.invoke(mm.deserialize("<aqua>${question.question}</aqua>"))
+        broadcast?.invoke(mm.deserialize("<aqua>${mm.escapeTags(question.question)}</aqua>"))
         broadcast?.invoke(mm.deserialize("<yellow><bold>Options:</bold></yellow>\n${question.formattedAnswers}"))
 
         // Schedule time-up task
@@ -101,7 +113,7 @@ class TriviaService(
             return AnswerResult.CORRECT
         }
 
-        // Wrong answer
+        // Wrong answer — set expiry-based mute
         if (config.game.muteIncorrect.enabled && !player.hasPermission("lumatrivia.mute.bypass")) {
             mutedPlayers[player.uniqueId] = System.currentTimeMillis() + (config.game.answerTime * 1000L)
         }
@@ -116,7 +128,7 @@ class TriviaService(
         if (question != null) {
             val mm = MiniMessage.miniMessage()
             broadcast?.invoke(mm.deserialize(
-                "<red>Time's up!</red> <gray>The correct answer was:</gray> <gold>${question.correctAnswer}</gold> <dark_gray>(${question.correctAnswerLetter})</dark_gray>"
+                "<red>Time's up!</red> <gray>The correct answer was:</gray> <gold>${mm.escapeTags(question.correctAnswer)}</gold> <dark_gray>(${question.correctAnswerLetter})</dark_gray>"
             ))
         }
     }
@@ -133,7 +145,7 @@ class TriviaService(
             plugin.server.scheduler.cancelTask(gameTaskId)
             gameTaskId = -1
         }
-        mutedPlayers.clear()
+        // Don't clear mutes — let per-player expiry and isPlayerMuted's auto-expiry handle it
         // Cooldown starts when game ends, not when it starts
         cooldownUntil = System.currentTimeMillis() + (config.game.cooldown * 1000L)
     }

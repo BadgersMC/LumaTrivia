@@ -13,19 +13,19 @@ Tags: `TDD`, `DOC`, `INFRA`. State: `[ ]` not started, `[~]` in progress, `[x]` 
   Ref: tech-stack.md §2, implementation.md §1  
   Tag: INFRA  
   Create `build.gradle.kts` (Kotlin 2.1.0, JDK 21, shadowJar, Nexus v2.1.1, OkHttp 4.12.0, Gson 2.10.1, Exposed 0.55.0), `settings.gradle.kts`, `paper-plugin.yml` (all 4 perms declared), `.gitignore`, Gradle wrapper. Dir structure per implementation.md §1.  
-  Evidence: build.gradle.kts + full suite — 42/42 tests, shadowJar at build/libs/LumaTrivia-1.1.0.jar.github/workflows/release.yml — tag-based release (softprops/action-gh-release@v2)ServiceModule + LumaTriviaPlugin — full DI wiring, onEnable/onDisable lifecycleTriviaConfig + ServiceModule.loadConfig — SnakeYAML loader with defaultsTriviaBukkitCommand — /trivia start|stats|top|reload with perm gatingLayerRulesTest — 3-layer Konsist enforcement passesStatsService — delegates to StatsRepositoryQuestionFetcher — OkHttp + Gson + Base64 decode + cache queueTriviaService — 9/9 tests pass (start, reject active, cooldown, correct, wrong, already-answered, time-up, mute-bypass, current question)ContentFilter + ContentFilterConfig — 6/6 tests passDatabaseFactory, StatsTable, StatsRepository, SqliteStatsRepository — 6/6 tests pass (save/load, update, find, top players, limit, name update)src/main/kotlin/net/badgersmc/trivia/domain/PlayerStats.kt — 7/7 tests pass (init, easy/medium/hard points, accumulation, compareTo)src/main/kotlin/net/badgersmc/trivia/domain/Question.kt — 12/12 tests pass (letter, T/F, direct, case-insensitive, formatted, getters)docs/tech-stack.md, requirements.md (19 REQs), implementation.md, tasks.md — all EARS-validatedsrc/main/kotlin/net/badgersmc/trivia/loader/LumaTriviaLoader.java — extends NexusPaperPluginLoader, compiles ✓src/main/resources/lang/en_US.yml — 24 MiniMessage keys, shadow+gradient prefixsrc/main/resources/config.yml — all keys ported, SnakeYAML-compatiblebuild.gradle.kts, settings.gradle.kts, paper-plugin.yml, .gitignore, Gradle wrapper — compiles ✓` `
+  Evidence: `build.gradle.kts` compiles, 42/42 tests, `shadowJar` produces `build/libs/LumaTrivia-1.1.0.jar`, `.github/workflows/release.yml` triggers on `v*` tags.  
 
 - [x] **INFRA-02** — Write default config.yml  
   Ref: REQ-001,007,008,009,014,015,018  
   Tag: INFRA  
   Write `src/main/resources/config.yml`: api, game (answer-time, cooldown, mute-incorrect, schedule, categories, difficulties), rewards (easy/medium/hard → commands+points), content-filter (enabled, log-filtered, blocked-patterns, required-pattern), storage (backend: sqlite, file: stats.db).  
-  Evidence: DatabaseFactory, StatsTable, StatsRepository, SqliteStatsRepository — 6/6 tests pass (save/load, update, find, top players, limit, name update)src/main/kotlin/net/badgersmc/trivia/domain/PlayerStats.kt — 7/7 tests pass (init, easy/medium/hard points, accumulation, compareTo)` `
+  Evidence: `config.yml` present in `src/main/resources/`, all keys loadable by `ServiceModule.loadConfig()`.  
 
 - [x] **INFRA-03** — Write lang/en_US.yml  
   Ref: REQ-016, implementation.md §4  
   Tag: INFRA  
   Port ALL messages to MiniMessage. `<shadow:#000000:1>` on every line. Keys: prefix, game.*, mute.*, commands.*, error.*.  
-  Evidence: DatabaseFactory, StatsTable, StatsRepository, SqliteStatsRepository — 6/6 tests pass (save/load, update, find, top players, limit, name update)` `
+  Evidence: `src/main/resources/lang/en_US.yml` with 21 MiniMessage keys under prefix/game/mute/commands/error.  
 
 - [x] **INFRA-04** — Create loader class  
   Ref: REQ-017  
