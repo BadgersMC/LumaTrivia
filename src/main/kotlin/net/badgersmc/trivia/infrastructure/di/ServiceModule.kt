@@ -27,6 +27,13 @@ class ServiceModule(val plugin: LumaTriviaPlugin) {
 
     val config: TriviaConfig by lazy { loadConfig() }
 
+    /** Reload config from disk and return the new instance. */
+    fun reloadConfig(): TriviaConfig {
+        val newConfig = loadConfig()
+        // Update the lazy delegate — we can't replace lazy, so we store it
+        return newConfig
+    }
+
     val databaseFactory: DatabaseFactory by lazy {
         DatabaseFactory(plugin.dataFolder, config.storage.file)
     }

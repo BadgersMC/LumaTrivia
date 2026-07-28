@@ -34,9 +34,11 @@ class ChatListener(
         val content = (event.message() as? TextComponent)?.content() ?: return
         val normalized = content.trim().lowercase()
 
-        // Valid answer formats: a/b/c/d, t/f/true/false
+        // Valid answer formats: single letter bound to actual option count, or t/f/true/false
+        val question = triviaService.currentQuestion ?: return
+        val maxLetter = 'a' + (question.answerCount - 1)
         val isValidAnswer = when {
-            normalized.length == 1 && normalized[0] in 'a'..'z' -> true
+            normalized.length == 1 && normalized[0] in 'a'..maxLetter -> true
             normalized.matches(Regex("^(t(rue)?|f(alse)?)$")) -> true
             else -> false
         }
@@ -52,18 +54,17 @@ class ChatListener(
             player.server.scheduler.runTask(
                 player.server.pluginManager.getPlugin("LumaTrivia")!!,
                 Runnable {
-                    // Guard: player may have disconnected
                     if (!player.isOnline) return@Runnable
                     val result = triviaService.checkAnswer(player, answer)
                     when (result) {
                         TriviaService.AnswerResult.CORRECT -> {
-                            val question = triviaService.currentQuestion ?: return@Runnable
+                            val q = triviaService.currentQuestion ?: return@Runnable
                             player.server.broadcast(
                                 lang.msg(
                                     "game.correct_answer",
                                     "player" to player.name,
-                                    "answer" to question.correctAnswer,
-                                    "letter" to question.correctAnswerLetter,
+                                    "answer" to q.correctAnswer,
+                                    "letter" to q.correctAnswerLetter,
                                 )
                             )
                         }

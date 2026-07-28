@@ -16,17 +16,48 @@ class LumaTriviaPlugin : JavaPlugin() {
 
         services = ServiceModule(this)
 
-        // Register command (stored for unregister on disable)
-        triviaCommand = TriviaBukkitCommand(services.triviaService, services.statsService, services.lang)
+        // Wire broadcast callback for game announcements (start, question, options, time_up)
+        services.triviaService.broadcast = { component ->
+            server.broadcast(component)
+        }
+
+        // Wire async fetch callback for cache recovery
+        services.triviaService.fetchCallback = {
+            server.scheduler.runTaskAsynchronously(this, Runnable {
+                services.questionFetcher.fetchQuestions()
+            })
+        }
+
+        // Start async question cache fill
+        server.scheduler.runTaskAsynchronously(this, Runnable {
+            services.questionFetcher.fetchQuestions()
+        })
+
+        // Register command
+        triviaCommand = TriviaBukkitCommand(services.triviaService, services.statsService, services.lang, services)
         server.commandMap.register("lumatrivia", triviaCommand!!)
 
         // Register listener
         server.pluginManager.registerEvents(services.chatListener, this)
 
-        // Prefetch questions on startup
-        services.questionFetcher.fetchQuestions()
+        // Set up scheduled games if configured
+        setupScheduledGames()
 
         logger.info("LumaTrivia enabled (v${description.version})")
+    }
+
+    private fun setupScheduledGames() {
+        val schedule = services.config.game.schedule
+        if (!schedule.enabled || schedule.times.isEmpty()) return
+
+        // Check every minute if it's time for a scheduled game
+        server.scheduler.runTaskTimer(this, Runnable {
+            val now = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            if (now in schedule.times) {
+                services.triviaService.startGame()
+            }
+        }, 20 * 60, 20 * 60) // 1 minute initial delay, 1 minute repeat
+        logger.info("Scheduled games enabled for times: ${schedule.times.joinToString()}")
     }
 
     override fun onDisable() {
@@ -34,7 +65,6 @@ class LumaTriviaPlugin : JavaPlugin() {
             services.nexusScheduler.cancelAll()
             services.databaseFactory.close()
         }
-        // Unregister command from command map
         triviaCommand?.let { cmd ->
             server.commandMap.knownCommands.values.removeIf { it == cmd }
         }

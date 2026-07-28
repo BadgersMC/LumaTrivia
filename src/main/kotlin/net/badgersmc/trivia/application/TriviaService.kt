@@ -5,6 +5,8 @@ import net.badgersmc.trivia.domain.PlayerStats
 import net.badgersmc.trivia.domain.Question
 import net.badgersmc.trivia.infrastructure.config.TriviaConfig
 import net.badgersmc.trivia.infrastructure.persistence.StatsRepository
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.UUID
@@ -16,12 +18,17 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class TriviaService(
     private val plugin: JavaPlugin,
-    private val config: TriviaConfig,
+    private var config: TriviaConfig,
     private val fetcher: QuestionFetcher,
     private val statsRepo: StatsRepository,
     private val scheduler: NexusScheduler,
 ) {
     enum class AnswerResult { CORRECT, WRONG, ALREADY_ANSWERED, NO_GAME }
+
+    /** Callback for broadcasting MiniMessage to all players. */
+    var broadcast: ((message: Component) -> Unit)? = null
+    /** Callback for fetching questions asynchronously. */
+    var fetchCallback: (() -> Unit)? = null
 
     private var gameActive: Boolean = false
     private var gameTaskId: Int = -1
@@ -36,17 +43,33 @@ class TriviaService(
     fun isGameActive(): Boolean = gameActive
     fun isPlayerMuted(uuid: UUID): Boolean = mutedPlayers.containsKey(uuid)
 
+    /** Update config at runtime (for reload). */
+    fun updateConfig(newConfig: TriviaConfig) {
+        config = newConfig
+    }
+
     /** Start a trivia game. Returns true if the game was started. */
     fun startGame(): Boolean {
         if (gameActive) return false
         if (System.currentTimeMillis() < cooldownUntil) return false
-        if (fetcher.isEmpty) return false
+
+        // If cache is empty, trigger async fetch and fail gracefully
+        if (fetcher.isEmpty) {
+            fetchCallback?.invoke()
+            return false
+        }
 
         val question = fetcher.poll() ?: return false
         currentQuestionData = question
         answeredPlayers.clear()
         mutedPlayers.clear()
         gameActive = true
+
+        // Broadcast game start + question + options
+        val mm = MiniMessage.miniMessage()
+        broadcast?.invoke(mm.deserialize("<yellow>A new trivia question has been asked!</yellow>"))
+        broadcast?.invoke(mm.deserialize("<aqua>${question.question}</aqua>"))
+        broadcast?.invoke(mm.deserialize("<yellow><bold>Options:</bold></yellow>\n${question.formattedAnswers}"))
 
         // Schedule time-up task
         val answerTime = config.game.answerTime
@@ -82,7 +105,14 @@ class TriviaService(
     /** Called when the answer timer expires. */
     fun timeUp() {
         if (!gameActive) return
+        val question = currentQuestionData
         endGame()
+        if (question != null) {
+            val mm = MiniMessage.miniMessage()
+            broadcast?.invoke(mm.deserialize(
+                "<red>Time's up!</red> <gray>The correct answer was:</gray> <gold>${question.correctAnswer}</gold> <dark_gray>(${question.correctAnswerLetter})</dark_gray>"
+            ))
+        }
     }
 
     /** Get the cooldown remaining in seconds, or 0 if no cooldown. */
@@ -106,14 +136,15 @@ class TriviaService(
         val playerId = player.uniqueId
         val existing = statsRepo.findByPlayerId(playerId)
         val stats = existing ?: PlayerStats(playerId, player.name)
-        // Always refresh player name from current identity
         stats.playerName = player.name
-        val pts = config.rewards[question.difficulty.lowercase()]?.points ?: (
-            when (question.difficulty.lowercase()) {
-                "hard" -> 3; "medium" -> 2; else -> 1
-            }
+        val diff = question.difficulty.lowercase()
+        val pts = config.rewards[diff]?.points ?: when (diff) { "hard" -> 3; "medium" -> 2; else -> 1 }
+        stats.addCorrectAnswer(
+            difficulty = question.difficulty,
+            easyPoints = if (diff == "easy") pts else (config.rewards["easy"]?.points ?: 1),
+            mediumPoints = if (diff == "medium") pts else (config.rewards["medium"]?.points ?: 2),
+            hardPoints = if (diff == "hard") pts else (config.rewards["hard"]?.points ?: 3),
         )
-        stats.addCorrectAnswer(question.difficulty, hardPoints = pts)
         statsRepo.save(stats)
     }
 

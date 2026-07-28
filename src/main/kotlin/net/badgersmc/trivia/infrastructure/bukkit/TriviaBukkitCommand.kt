@@ -3,6 +3,7 @@ package net.badgersmc.trivia.infrastructure.bukkit
 import net.badgersmc.nexus.i18n.LangService
 import net.badgersmc.trivia.application.StatsService
 import net.badgersmc.trivia.application.TriviaService
+import net.badgersmc.trivia.infrastructure.di.ServiceModule
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.command.Command
@@ -16,6 +17,7 @@ class TriviaBukkitCommand(
     private val triviaService: TriviaService,
     private val statsService: StatsService,
     private val lang: LangService,
+    private val services: ServiceModule,
 ) : Command("trivia") {
 
     init {
@@ -58,6 +60,7 @@ class TriviaBukkitCommand(
         if (!started) {
             sender.sendMessage(lang.msg("game.no_questions"))
         }
+        // startGame() broadcasts game.start/question/options via the broadcast callback
     }
 
     private fun handleStats(sender: CommandSender) {
@@ -104,6 +107,8 @@ class TriviaBukkitCommand(
             sender.sendMessage(lang.msg("error.no_permission"))
             return
         }
+        services.reloadConfig()
+        triviaService.updateConfig(services.config)
         sender.sendMessage(lang.msg("commands.reload"))
     }
 
