@@ -143,6 +143,8 @@ class TriviaService(
             plugin.server.scheduler.cancelTask(gameTaskId)
             gameTaskId = -1
         }
+        // Release all mutes — round is over
+        chat.clearMutes()
         // Cooldown starts when game ends
         cooldownUntil = System.currentTimeMillis() + (config.game.cooldown * 1000L)
     }

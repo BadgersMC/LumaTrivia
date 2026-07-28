@@ -14,7 +14,7 @@ import org.bukkit.event.Listener
  * Delegates mute control and channel validation to [ChatPlatform].
  *
  * On vanilla Paper: cancels AsyncChatEvent at LOWEST priority.
- * On RoseChat: channel-scoped mutes; only processes answers from the configured channel.
+ * On RoseChat: mute only enforced for the trivia channel; other channels are untouched.
  */
 class ChatListener(
     private val triviaService: TriviaService,
@@ -26,21 +26,21 @@ class ChatListener(
     fun onChat(event: AsyncChatEvent) {
         val player = event.player
 
-        // Mute enforcement — delegates to platform
+        // Only active during a game
+        if (!triviaService.isActive) return
+
+        val content = (event.message() as? TextComponent)?.content() ?: return
+
+        // Channel/platform check first — only trivia-channel messages proceed
+        if (!chatPlatform.isAnswerChat(player, content)) return
+        val answer = chatPlatform.extractAnswer(content) ?: return
+
+        // Mute enforcement — only blocks trivia-channel answers
         if (chatPlatform.isMuted(player) && !player.hasPermission("lumatrivia.mute.bypass")) {
             event.isCancelled = true
             player.sendMessage(lang.msg("mute.muted"))
             return
         }
-
-        // Only process answers when game is active
-        if (!triviaService.isActive) return
-
-        val content = (event.message() as? TextComponent)?.content() ?: return
-
-        // Let platform validate channel + extract answer
-        if (!chatPlatform.isAnswerChat(player, content)) return
-        val answer = chatPlatform.extractAnswer(content) ?: return
 
         // Valid answer formats: single letter or t/f/true/false
         val normalized = answer.trim().lowercase()

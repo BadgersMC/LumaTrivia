@@ -78,7 +78,7 @@ class ServiceModule(val plugin: LumaTriviaPlugin) {
             RoseChatPlatform(channel)
         } else {
             plugin.logger.info("Using vanilla chat platform")
-            VanillaChatPlatform()
+            VanillaChatPlatform(plugin)
         }
     }
 

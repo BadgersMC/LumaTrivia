@@ -25,6 +25,9 @@ interface ChatPlatform {
     /** Unmute [player] immediately. */
     fun unmutePlayer(player: Player)
 
+    /** Unmute all players — called when a round ends. */
+    fun clearMutes()
+
     /** Whether the player's chat should be processed as a trivia answer. */
     fun isAnswerChat(player: Player, rawMessage: String): Boolean
 
