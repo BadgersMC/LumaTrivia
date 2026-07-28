@@ -1,4 +1,4 @@
-name: Release
+name: release
 
 on:
   push:
@@ -6,49 +6,31 @@ on:
       - 'v*'
 
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
-          java-version: '17'
-          distribution: 'temurin'
-          
-      - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
-      
-      - name: Execute Gradle build
-        run: ./gradlew clean shadowJar
-      
-      - name: Get version from tag
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
-      
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12  # v4.7.1
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build shadowJar
+        run: ./gradlew shadowJar --no-daemon -PreleaseVersion="${{ github.ref_name }}"
+
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2
         with:
-          name: Release ${{ env.VERSION }}
-          draft: false
-          prerelease: false
-          files: |
-            build/libs/LumaTrivia-*.jar
-          body: |
-            ## LumaTrivia ${{ env.VERSION }}
-            
-            ### Installation
-            1. Download the JAR file
-            2. Place it in your server's `plugins` folder
-            3. Restart your server
-            4. Configure the plugin in `plugins/LumaTrivia/config.yml`
-            
-            ### Configuration
-            See the [configuration guide](https://github.com/BadgersMC/LumaTrivia/wiki/Configuration) for detailed settings.
-            
-            ### Compatibility
-            - Requires Paper 1.20.4+
-            - Java 17+
+          tag_name: ${{ github.ref_name }}
+          name: LumaTrivia ${{ github.ref_name }}
+          files: build/libs/LumaTrivia-${{ github.ref_name }}.jar
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          make_latest: true
