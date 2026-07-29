@@ -97,6 +97,7 @@ class TriviaServiceTest {
         service.startGame()
 
         val player = mockPlayer()
+        service.tryClaimAnswer(player.uniqueId)
         service.checkAnswer(player, question.correctAnswerLetter.lowercase())
 
         val second = service.startGame()
@@ -112,6 +113,7 @@ class TriviaServiceTest {
 
         val correctLetter = question.correctAnswerLetter.lowercase()
         val player = mockPlayer()
+        service.tryClaimAnswer(player.uniqueId)
         val result = service.checkAnswer(player, correctLetter)
 
         assertEquals(TriviaService.AnswerResult.CORRECT, result)
@@ -127,6 +129,7 @@ class TriviaServiceTest {
         service.startGame()
 
         val player = mockPlayer()
+        service.tryClaimAnswer(player.uniqueId)
         val result = service.checkAnswer(player, wrongLetter(question))
 
         assertEquals(TriviaService.AnswerResult.WRONG, result)
@@ -135,17 +138,18 @@ class TriviaServiceTest {
     }
 
     @Test
-    fun `already answered player is rejected`() {
+    fun `already answered player is rejected by tryClaimAnswer`() {
         val question = createQuestion("Paris")
         every { fetcher.isEmpty } returns false
         every { fetcher.poll() } returns question
         service.startGame()
 
         val player = mockPlayer()
+        assertTrue(service.tryClaimAnswer(player.uniqueId))
         service.checkAnswer(player, wrongLetter(question))
-        val second = service.checkAnswer(player, wrongLetter(question))
 
-        assertEquals(TriviaService.AnswerResult.ALREADY_ANSWERED, second)
+        val claimed = service.tryClaimAnswer(player.uniqueId)
+        assertFalse(claimed)
     }
 
     @Test
@@ -169,6 +173,7 @@ class TriviaServiceTest {
         val player = mockPlayer()
         every { player.hasPermission("lumatrivia.mute.bypass") } returns true
 
+        service.tryClaimAnswer(player.uniqueId)
         val result = service.checkAnswer(player, wrongLetter(question))
         assertEquals(TriviaService.AnswerResult.WRONG, result)
         verify(exactly = 0) { chat.mutePlayer(any(), any()) }

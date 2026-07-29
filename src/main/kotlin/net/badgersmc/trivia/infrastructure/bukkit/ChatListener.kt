@@ -56,8 +56,8 @@ class ChatListener(
         if (isValidAnswer) {
             event.isCancelled = true
 
-            // Early-out: block duplicate answers before scheduling
-            if (triviaService.hasPlayerAnswered(player.uniqueId)) {
+            // Atomic claim — blocks duplicates before scheduling
+            if (!triviaService.tryClaimAnswer(player.uniqueId)) {
                 player.sendMessage(lang.msg("game.already_answered"))
                 return
             }

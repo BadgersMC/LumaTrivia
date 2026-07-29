@@ -45,8 +45,12 @@ class TriviaService(
 
     fun isGameActive(): Boolean = gameActive
 
-    /** Check if player already answered this round. Thread-safe early-out for the listener. */
-    fun hasPlayerAnswered(uuid: UUID): Boolean = answeredPlayers.contains(uuid)
+    /**
+     * Atomically claims the answer slot for this player.
+     * Returns true if the player hadn't answered yet, false if already claimed.
+     * Thread-safe — callable from any thread.
+     */
+    fun tryClaimAnswer(uuid: UUID): Boolean = answeredPlayers.add(uuid)
 
     /** Update config at runtime (for reload). */
     fun updateConfig(newConfig: TriviaConfig) {
@@ -97,15 +101,10 @@ class TriviaService(
         return true
     }
 
-    /** Process a player's answer. Must be called on the main thread. */
+    /** Process a player's answer. Caller must first claim via [tryClaimAnswer]. */
     fun checkAnswer(player: Player, answer: String): AnswerResult {
         if (!gameActive) return AnswerResult.NO_GAME
         val question = currentQuestionData ?: return AnswerResult.NO_GAME
-
-        if (answeredPlayers.contains(player.uniqueId)) {
-            return AnswerResult.ALREADY_ANSWERED
-        }
-        answeredPlayers.add(player.uniqueId)
 
         if (question.isCorrectAnswer(answer)) {
             endGame()
