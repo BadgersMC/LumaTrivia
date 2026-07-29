@@ -12,7 +12,15 @@ class LumaTriviaPlugin : JavaPlugin() {
     private var triviaCommand: TriviaBukkitCommand? = null
     private var scheduleTaskId: Int = -1
 
-    override fun onEnable() {
+ override fun onEnable() {
+    logger.info("RoseChat plugin = ${server.pluginManager.getPlugin("RoseChat")}")
+
+    try {
+        val clazz = Class.forName("dev.rosewood.rosechat.message.RosePlayer")
+        logger.info("Successfully loaded ${clazz.name}")
+    } catch (t: Throwable) {
+        logger.log(Level.SEVERE, "Failed to load RosePlayer", t)
+    }
         saveDefaultConfig()
         dataFolder.mkdirs()
 
