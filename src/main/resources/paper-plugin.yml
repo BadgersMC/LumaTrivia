@@ -6,7 +6,13 @@ api-version: '1.21'
 authors: [BadgersMC]
 description: A trivia game plugin using OpenTriviaDB
 website: https://github.com/BadgersMC
-softdepend: [RoseChat]
+
+dependencies:
+  server:
+    RoseChat:
+      load: BEFORE
+      required: false
+      join-classpath: true
 
 permissions:
   lumatrivia.use:
