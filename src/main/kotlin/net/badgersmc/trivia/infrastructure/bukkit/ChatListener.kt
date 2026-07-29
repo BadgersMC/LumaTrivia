@@ -1,19 +1,19 @@
 package net.badgersmc.trivia.infrastructure.bukkit
 
-import io.papermc.paper.event.player.AsyncChatEvent
 import net.badgersmc.nexus.i18n.LangService
 import net.badgersmc.trivia.application.ChatPlatform
 import net.badgersmc.trivia.application.TriviaService
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
+import org.bukkit.event.player.AsyncPlayerChatEvent
 
 /**
  * Single listener for mute enforcement and answer parsing (REQ-019).
- * Delegates mute control and channel validation to [ChatPlatform].
+ * Uses Bukkit's AsyncPlayerChatEvent (not Paper's AsyncChatEvent) to avoid
+ * Component-type mismatches and priority conflicts with RoseChat.
  *
- * On vanilla Paper: cancels AsyncChatEvent at LOWEST priority.
+ * On vanilla Paper: cancels AsyncPlayerChatEvent at LOWEST priority.
  * On RoseChat: mute only enforced for the trivia channel; other channels are untouched.
  */
 class ChatListener(
@@ -22,17 +22,14 @@ class ChatListener(
     private val chatPlatform: ChatPlatform,
 ) : Listener {
 
-    private val plain = PlainTextComponentSerializer.plainText()
-
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
-    fun onChat(event: AsyncChatEvent) {
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
+    fun onChat(event: AsyncPlayerChatEvent) {
         val player = event.player
 
         // Only active during a game
         if (!triviaService.isActive) return
 
-        // Extract plain text from any Component type (TextComponent, TranslatableComponent, etc.)
-        val content = plain.serialize(event.message()).trim()
+        val content = event.message.trim()
         if (content.isEmpty()) return
 
         // Channel/platform check first — only trivia-channel messages proceed
@@ -58,6 +55,13 @@ class ChatListener(
 
         if (isValidAnswer) {
             event.isCancelled = true
+
+            // Early-out: block duplicate answers before scheduling
+            if (triviaService.hasPlayerAnswered(player.uniqueId)) {
+                player.sendMessage(lang.msg("game.already_answered"))
+                return
+            }
+
             val mapped = when {
                 normalized.startsWith("t") -> "true"
                 normalized.startsWith("f") -> "false"
