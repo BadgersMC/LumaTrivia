@@ -38,12 +38,19 @@ class TriviaService(
     private var gameTaskId: Int = -1
     private var cooldownUntil: Long = 0L
     private var currentQuestionData: Question? = null
-    private val answeredPlayers: MutableSet<UUID> = HashSet()
+    private val answeredPlayers: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
 
     val currentQuestion: Question? get() = currentQuestionData
     val isActive: Boolean get() = gameActive
 
     fun isGameActive(): Boolean = gameActive
+
+    /**
+     * Atomically claims the answer slot for this player.
+     * Returns true if the player hadn't answered yet, false if already claimed.
+     * Thread-safe — callable from any thread.
+     */
+    fun tryClaimAnswer(uuid: UUID): Boolean = answeredPlayers.add(uuid)
 
     /** Update config at runtime (for reload). */
     fun updateConfig(newConfig: TriviaConfig) {
@@ -94,15 +101,10 @@ class TriviaService(
         return true
     }
 
-    /** Process a player's answer. Must be called on the main thread. */
+    /** Process a player's answer. Caller must first claim via [tryClaimAnswer]. */
     fun checkAnswer(player: Player, answer: String): AnswerResult {
         if (!gameActive) return AnswerResult.NO_GAME
         val question = currentQuestionData ?: return AnswerResult.NO_GAME
-
-        if (answeredPlayers.contains(player.uniqueId)) {
-            return AnswerResult.ALREADY_ANSWERED
-        }
-        answeredPlayers.add(player.uniqueId)
 
         if (question.isCorrectAnswer(answer)) {
             endGame()
