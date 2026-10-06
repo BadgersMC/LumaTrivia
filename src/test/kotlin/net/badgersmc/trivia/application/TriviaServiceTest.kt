@@ -2,7 +2,6 @@ package net.badgersmc.trivia.application
 
 import io.mockk.*
 import net.badgersmc.nexus.scheduler.NexusScheduler
-import net.badgersmc.trivia.domain.PlayerStats
 import net.badgersmc.trivia.domain.Question
 import net.badgersmc.trivia.infrastructure.config.*
 import net.badgersmc.trivia.infrastructure.persistence.StatsRepository
@@ -41,6 +40,7 @@ class TriviaServiceTest {
         every { plugin.server } returns server
         every { server.consoleSender } returns console
         every { server.scheduler } returns mockk(relaxed = true)
+        every { statsRepo.findByPlayerId(any()) } returns null
 
         config = TriviaConfig(
             api = ApiConfig("", 24, 10000),
@@ -85,109 +85,118 @@ class TriviaServiceTest {
         every { fetcher.poll() } returns createQuestion("Paris")
         service.startGame()
 
-        val second = service.startGame()
-        assertFalse(second)
+        assertFalse(service.startGame())
     }
 
     @Test
-    fun `reject start during cooldown`() {
-        val question = createQuestion("Paris")
-        every { fetcher.isEmpty } returns false
-        every { fetcher.poll() } returns question
-        service.startGame()
-
+    fun `correct answer stays secret and unrewarded until time up`() {
+        val question = startQuestion()
         val player = mockPlayer()
+        val playerName = player.name
+
         service.tryClaimAnswer(player.uniqueId)
-        service.checkAnswer(player, question.correctAnswerLetter.lowercase())
-
-        val second = service.startGame()
-        assertFalse(second)
-    }
-
-    @Test
-    fun `correct answer ends game and records stats`() {
-        val question = createQuestion("Paris")
-        every { fetcher.isEmpty } returns false
-        every { fetcher.poll() } returns question
-        service.startGame()
-
-        val correctLetter = question.correctAnswerLetter.lowercase()
-        val player = mockPlayer()
-        service.tryClaimAnswer(player.uniqueId)
-        val result = service.checkAnswer(player, correctLetter)
+        val result = service.checkAnswer(player, question.correctAnswerLetter.lowercase())
 
         assertEquals(TriviaService.AnswerResult.CORRECT, result)
+        assertTrue(service.isGameActive())
+        verify(exactly = 0) { statsRepo.save(any()) }
+        verify(exactly = 0) { server.dispatchCommand(any(), any()) }
+
+        service.timeUp()
+
         assertFalse(service.isGameActive())
-        verify { statsRepo.save(any()) }
+        verify(exactly = 1) { statsRepo.save(any()) }
+        verify { server.dispatchCommand(console, "eco give $playerName 100") }
     }
 
     @Test
-    fun `wrong answer delegates mute to platform and keeps game active`() {
-        val question = createQuestion("Paris")
-        every { fetcher.isEmpty } returns false
-        every { fetcher.poll() } returns question
-        service.startGame()
+    fun `all correct players are rewarded when timer expires`() {
+        val question = startQuestion()
+        val first = mockPlayer()
+        val second = mockPlayer()
+        val firstName = first.name
+        val secondName = second.name
+        val answer = question.correctAnswerLetter.lowercase()
 
+        service.tryClaimAnswer(first.uniqueId)
+        service.checkAnswer(first, answer)
+        service.tryClaimAnswer(second.uniqueId)
+        service.checkAnswer(second, answer)
+
+        verify(exactly = 0) { statsRepo.save(any()) }
+        service.timeUp()
+
+        verify(exactly = 2) { statsRepo.save(any()) }
+        verify { server.dispatchCommand(console, "eco give $firstName 100") }
+        verify { server.dispatchCommand(console, "eco give $secondName 100") }
+    }
+
+    @Test
+    fun `wrong answer is silent and does not mute or reward`() {
+        val question = startQuestion()
         val player = mockPlayer()
+
         service.tryClaimAnswer(player.uniqueId)
         val result = service.checkAnswer(player, wrongLetter(question))
 
         assertEquals(TriviaService.AnswerResult.WRONG, result)
         assertTrue(service.isGameActive())
-        verify { chat.mutePlayer(player, config.game.answerTime) }
-    }
-
-    @Test
-    fun `already answered player is rejected by tryClaimAnswer`() {
-        val question = createQuestion("Paris")
-        every { fetcher.isEmpty } returns false
-        every { fetcher.poll() } returns question
-        service.startGame()
-
-        val player = mockPlayer()
-        assertTrue(service.tryClaimAnswer(player.uniqueId))
-        service.checkAnswer(player, wrongLetter(question))
-
-        val claimed = service.tryClaimAnswer(player.uniqueId)
-        assertFalse(claimed)
-    }
-
-    @Test
-    fun `time up ends game`() {
-        val question = createQuestion("Paris")
-        every { fetcher.isEmpty } returns false
-        every { fetcher.poll() } returns question
-        service.startGame()
+        verify(exactly = 0) { chat.mutePlayer(any(), any()) }
+        verify(exactly = 0) { statsRepo.save(any()) }
 
         service.timeUp()
-        assertFalse(service.isGameActive())
+
+        verify(exactly = 0) { statsRepo.save(any()) }
+        verify(exactly = 0) { server.dispatchCommand(any(), any()) }
     }
 
     @Test
-    fun `mute bypass permission exempts from muting`() {
-        val question = createQuestion("Paris")
-        every { fetcher.isEmpty } returns false
-        every { fetcher.poll() } returns question
-        service.startGame()
-
+    fun `already answered player cannot submit again`() {
+        val question = startQuestion()
         val player = mockPlayer()
-        every { player.hasPermission("lumatrivia.mute.bypass") } returns true
+
+        assertTrue(service.tryClaimAnswer(player.uniqueId))
+        service.checkAnswer(player, wrongLetter(question))
+        assertFalse(service.tryClaimAnswer(player.uniqueId))
+    }
+
+    @Test
+    fun `cooldown starts only when round resolves`() {
+        val question = startQuestion()
+        val player = mockPlayer()
 
         service.tryClaimAnswer(player.uniqueId)
-        val result = service.checkAnswer(player, wrongLetter(question))
-        assertEquals(TriviaService.AnswerResult.WRONG, result)
-        verify(exactly = 0) { chat.mutePlayer(any(), any()) }
+        service.checkAnswer(player, question.correctAnswerLetter.lowercase())
+        assertTrue(service.isGameActive())
+
+        service.timeUp()
+        assertFalse(service.startGame())
+    }
+
+    @Test
+    fun `time up ends game with no answers`() {
+        startQuestion()
+
+        service.timeUp()
+
+        assertFalse(service.isGameActive())
+        verify(exactly = 0) { statsRepo.save(any()) }
     }
 
     @Test
     fun `current question is exposed`() {
-        val question = createQuestion("Paris")
-        every { fetcher.isEmpty } returns false
-        every { fetcher.poll() } returns question
-        service.startGame()
+        startQuestion()
 
         assertNotNull(service.currentQuestion)
         assertEquals("What is the capital?", service.currentQuestion?.question)
+    }
+
+    private fun startQuestion(): Question {
+        val question = createQuestion("Paris")
+        every { fetcher.isEmpty } returns false
+        every { fetcher.poll() } returns question
+        assertTrue(service.startGame())
+        return question
     }
 
     private fun wrongLetter(question: Question): String {

@@ -6,6 +6,10 @@ import net.badgersmc.trivia.domain.Question
 import net.badgersmc.trivia.infrastructure.config.TriviaConfig
 import net.badgersmc.trivia.infrastructure.persistence.StatsRepository
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.format.TextDecoration
+import net.kyori.adventure.text.event.ClickEvent
+import net.kyori.adventure.text.event.HoverEvent
 import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
@@ -14,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Core trivia game lifecycle service (REQ-001..007, REQ-012, REQ-015).
- * Manages game state, answer validation, muting, cooldowns, rewards, and scheduled games.
+ * Manages game state, answer validation, cooldowns, deferred rewards, and scheduled games.
  */
 class TriviaService(
     private val plugin: JavaPlugin,
@@ -26,7 +30,7 @@ class TriviaService(
 ) {
     enum class AnswerResult { CORRECT, WRONG, ALREADY_ANSWERED, NO_GAME }
 
-    /** Callback for broadcasting MiniMessage to all players. */
+    /** Callback for broadcasting components to all players. */
     var broadcast: ((message: Component) -> Unit)? = null
     /** Callback for fetching questions asynchronously (called when cache is empty). */
     var fetchCallback: (() -> Unit)? = null
@@ -39,6 +43,7 @@ class TriviaService(
     private var cooldownUntil: Long = 0L
     private var currentQuestionData: Question? = null
     private val answeredPlayers: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
+    private val correctPlayers: MutableMap<UUID, String> = ConcurrentHashMap()
 
     val currentQuestion: Question? get() = currentQuestionData
     val isActive: Boolean get() = gameActive
@@ -86,50 +91,63 @@ class TriviaService(
         val question = fetcher.poll() ?: return false
         currentQuestionData = question
         answeredPlayers.clear()
+        correctPlayers.clear()
         gameActive = true
 
-        // Broadcast game start + question (escaped) + options
         val mm = MiniMessage.miniMessage()
         broadcast?.invoke(mm.deserialize("<yellow>A new trivia question has been asked!</yellow>"))
         broadcast?.invoke(mm.deserialize("<aqua>${mm.escapeTags(question.question)}</aqua>"))
-        broadcast?.invoke(mm.deserialize("<yellow><bold>Options:</bold></yellow>\n${question.formattedAnswers}"))
+        broadcast?.invoke(buildClickableOptions(question))
 
-        // Schedule time-up task
         val answerTime = config.game.answerTime
         gameTaskId = plugin.server.scheduler.scheduleSyncDelayedTask(plugin, { timeUp() }, answerTime * 20L)
 
         return true
     }
 
-    /** Process a player's answer. Caller must first claim via [tryClaimAnswer]. */
+    /**
+     * Process a player's locked-in answer. Caller must first claim via [tryClaimAnswer].
+     * Correctness is intentionally not announced or rewarded until [timeUp].
+     */
     fun checkAnswer(player: Player, answer: String): AnswerResult {
         if (!gameActive) return AnswerResult.NO_GAME
         val question = currentQuestionData ?: return AnswerResult.NO_GAME
 
         if (question.isCorrectAnswer(answer)) {
-            endGame()
-            recordWin(player, question)
-            giveRewards(player, question.difficulty)
+            correctPlayers[player.uniqueId] = player.name
             return AnswerResult.CORRECT
         }
 
-        // Wrong answer — delegate mute to chat platform
-        if (config.game.muteIncorrect.enabled && !player.hasPermission("lumatrivia.mute.bypass")) {
-            chat.mutePlayer(player, config.game.answerTime)
-        }
+        // Wrong answers are intentionally silent. The player has still used their one submission.
         return AnswerResult.WRONG
     }
 
-    /** Called when the answer timer expires. */
+    /** Called when the answer timer expires. Resolves the entire round at once. */
     fun timeUp() {
         if (!gameActive) return
         val question = currentQuestionData
+        val winners = correctPlayers.toMap()
         endGame()
-        if (question != null) {
-            val mm = MiniMessage.miniMessage()
-            broadcast?.invoke(mm.deserialize(
+
+        if (question == null) return
+
+        for ((playerId, playerName) in winners) {
+            recordWin(playerId, playerName, question)
+            giveRewards(playerName, question.difficulty)
+        }
+
+        val mm = MiniMessage.miniMessage()
+        broadcast?.invoke(
+            mm.deserialize(
                 "<red>Time's up!</red> <gray>The correct answer was:</gray> <gold>${mm.escapeTags(question.correctAnswer)}</gold> <dark_gray>(${question.correctAnswerLetter})</dark_gray>"
-            ))
+            )
+        )
+
+        if (winners.isEmpty()) {
+            broadcast?.invoke(mm.deserialize("<gray>No one answered correctly this round.</gray>"))
+        } else {
+            val names = winners.values.joinToString(", ") { mm.escapeTags(it) }
+            broadcast?.invoke(mm.deserialize("<green>Correct:</green> <white>$names</white>"))
         }
     }
 
@@ -139,23 +157,48 @@ class TriviaService(
         return if (remaining > 0) remaining else 0
     }
 
+    private fun buildClickableOptions(question: Question): Component {
+        var options = Component.text("Options:", NamedTextColor.YELLOW, TextDecoration.BOLD)
+        val answerTexts = if (question.type.equals("boolean", ignoreCase = true)) {
+            listOf("True", "False")
+        } else {
+            question.shuffledAnswers
+        }
+
+        answerTexts.forEachIndexed { index, answerText ->
+            val answerLetter = ('a'.code + index).toChar()
+            val displayLetter = answerLetter.uppercaseChar()
+            val option = Component.text("$displayLetter) ", NamedTextColor.YELLOW)
+                .append(Component.text(answerText, NamedTextColor.WHITE))
+                .clickEvent(ClickEvent.runCommand("/trivia answer $answerLetter"))
+                .hoverEvent(
+                    HoverEvent.showText(
+                        Component.text("Click to lock in $displayLetter", NamedTextColor.GRAY)
+                    )
+                )
+            options = options.append(Component.newline()).append(option)
+        }
+
+        return options
+    }
+
     private fun endGame() {
         gameActive = false
         if (gameTaskId != -1) {
             plugin.server.scheduler.cancelTask(gameTaskId)
             gameTaskId = -1
         }
-        // Release all mutes — round is over
+        // Release any legacy/platform mutes — round is over.
         chat.clearMutes()
-        // Cooldown starts when game ends
+        answeredPlayers.clear()
+        correctPlayers.clear()
         cooldownUntil = System.currentTimeMillis() + (config.game.cooldown * 1000L)
     }
 
-    private fun recordWin(player: Player, question: Question) {
-        val playerId = player.uniqueId
+    private fun recordWin(playerId: UUID, playerName: String, question: Question) {
         val existing = statsRepo.findByPlayerId(playerId)
-        val stats = existing ?: PlayerStats(playerId, player.name)
-        stats.playerName = player.name
+        val stats = existing ?: PlayerStats(playerId, playerName)
+        stats.playerName = playerName
         val diff = question.difficulty.lowercase()
         val pts = config.rewards[diff]?.points ?: when (diff) { "hard" -> 3; "medium" -> 2; else -> 1 }
         stats.addCorrectAnswer(
@@ -167,15 +210,13 @@ class TriviaService(
         statsRepo.save(stats)
     }
 
-    private fun giveRewards(player: Player, difficulty: String) {
+    private fun giveRewards(playerName: String, difficulty: String) {
         val rewards = config.rewards[difficulty.lowercase()] ?: return
-        plugin.server.scheduler.runTask(plugin, Runnable {
-            for (command in rewards.commands) {
-                plugin.server.dispatchCommand(
-                    plugin.server.consoleSender,
-                    command.replace("%player%", player.name)
-                )
-            }
-        })
+        for (command in rewards.commands) {
+            plugin.server.dispatchCommand(
+                plugin.server.consoleSender,
+                command.replace("%player%", playerName)
+            )
+        }
     }
 }

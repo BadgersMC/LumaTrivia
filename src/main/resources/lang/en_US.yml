@@ -9,6 +9,7 @@ game:
   options: "<prefix><shadow:#000000:1><yellow><bold>Options:</bold></yellow>\n<answers></shadow>"
   correct_answer: "<prefix><shadow:#000000:1><green><player> got it right!</green> <gray>The answer was:</gray> <gold><answer></gold> <dark_gray>(<letter>)</dark_gray></shadow>"
   wrong_answer: "<prefix><shadow:#000000:1><red><player> guessed <answer></red> <gray>— that's not correct!</gray></shadow>"
+  answer_locked: "<prefix><shadow:#000000:1><green>Answer locked in.</green> <gray>Results will be revealed when time expires.</gray></shadow>"
   already_answered: "<prefix><shadow:#000000:1><red>You've already answered this question!</red></shadow>"
   time_up: "<prefix><shadow:#000000:1><red>Time's up!</red> <gray>The correct answer was:</gray> <gold><answer></gold> <dark_gray>(<letter>)</dark_gray></shadow>"
   cooldown: "<prefix><shadow:#000000:1><red>Please wait <time> seconds before starting another game</red></shadow>"
