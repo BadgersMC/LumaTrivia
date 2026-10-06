@@ -31,6 +31,7 @@ class TriviaBukkitCommand(
         }
 
         when (args[0].lowercase()) {
+            "answer" -> handleAnswer(sender, args)
             "start" -> handleStart(sender)
             "stats" -> handleStats(sender)
             "top" -> handleTop(sender)
@@ -38,6 +39,34 @@ class TriviaBukkitCommand(
             else -> sendUsage(sender)
         }
         return true
+    }
+
+    /** Hidden submission command used by clickable Java chat options. */
+    private fun handleAnswer(sender: CommandSender, args: Array<out String>) {
+        if (sender !is Player || !triviaService.isActive || args.size < 2) return
+
+        val question = triviaService.currentQuestion ?: return
+        val normalized = args[1].trim().lowercase()
+        val maxLetter = 'a' + (question.answerCount - 1)
+        val mapped = when {
+            normalized.length == 1 && normalized[0] in 'a'..maxLetter -> normalized
+            normalized.matches(Regex("^t(rue)?$")) -> "true"
+            normalized.matches(Regex("^f(alse)?$")) -> "false"
+            else -> return
+        }
+
+        if (!triviaService.tryClaimAnswer(sender.uniqueId)) {
+            sender.sendMessage(lang.msg("game.already_answered"))
+            return
+        }
+
+        when (triviaService.checkAnswer(sender, mapped)) {
+            TriviaService.AnswerResult.CORRECT,
+            TriviaService.AnswerResult.WRONG -> sender.sendMessage(lang.msg("game.answer_locked"))
+
+            TriviaService.AnswerResult.ALREADY_ANSWERED -> sender.sendMessage(lang.msg("game.already_answered"))
+            TriviaService.AnswerResult.NO_GAME -> {}
+        }
     }
 
     private fun handleStart(sender: CommandSender) {
@@ -58,7 +87,6 @@ class TriviaBukkitCommand(
         if (!started) {
             sender.sendMessage(lang.msg("game.no_questions"))
         }
-        // startGame() broadcasts game.start/question/options via the broadcast callback
     }
 
     private fun handleStats(sender: CommandSender) {
@@ -107,9 +135,7 @@ class TriviaBukkitCommand(
         }
         val newConfig = services.reloadConfig()
         triviaService.updateConfig(newConfig)
-        // Rebuild fetcher reference in trivia service (fetcher was recreated in ServiceModule)
         triviaService.fetcher = services.questionFetcher
-        // Rebuild schedule task from new config
         services.plugin.recreateScheduleTask()
         sender.sendMessage(lang.msg("commands.reload"))
     }
