@@ -12,6 +12,7 @@ import org.bukkit.plugin.java.JavaPlugin
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import java.net.InetSocketAddress
 import java.util.UUID
 import kotlin.test.*
 
@@ -25,10 +26,12 @@ class TriviaServiceTest {
     private lateinit var chat: ChatPlatform
     private lateinit var config: TriviaConfig
     private lateinit var service: TriviaService
+    private var nextIpOctet = 1
 
     @BeforeEach
     fun setUp() {
         MockKAnnotations.init(this, relaxUnitFun = true)
+        nextIpOctet = 1
         plugin = mockk(relaxed = true)
         server = mockk(relaxed = true)
         console = mockk(relaxed = true)
@@ -45,11 +48,20 @@ class TriviaServiceTest {
         config = TriviaConfig(
             api = ApiConfig("", 24, 10000),
             game = GameConfig(
-                answerTime = 30, cooldown = 300,
+                answerTime = 10, cooldown = 300,
                 muteIncorrect = MuteIncorrectConfig(true),
                 schedule = ScheduleConfig(false, emptyList()),
                 channel = "global",
                 categories = emptyList(), difficulties = emptyList(),
+                rewardPayout = RewardPayoutConfig(
+                    maxPaidWinners = 3,
+                    onePerIp = true,
+                    placementCommands = mapOf(
+                        1 to listOf("eco give %player% 15"),
+                        2 to listOf("eco give %player% 10"),
+                        3 to listOf("eco give %player% 5"),
+                    ),
+                ),
             ),
             rewards = mapOf(
                 "easy" to RewardConfig(listOf("eco give %player% 100"), 1),
@@ -106,11 +118,11 @@ class TriviaServiceTest {
 
         assertFalse(service.isGameActive())
         verify(exactly = 1) { statsRepo.save(any()) }
-        verify { server.dispatchCommand(console, "eco give $playerName 100") }
+        verify { server.dispatchCommand(console, "eco give $playerName 15") }
     }
 
     @Test
-    fun `all correct players are rewarded when timer expires`() {
+    fun `all correct players get stats while payouts follow placement order`() {
         val question = startQuestion()
         val first = mockPlayer()
         val second = mockPlayer()
@@ -127,8 +139,53 @@ class TriviaServiceTest {
         service.timeUp()
 
         verify(exactly = 2) { statsRepo.save(any()) }
-        verify { server.dispatchCommand(console, "eco give $firstName 100") }
-        verify { server.dispatchCommand(console, "eco give $secondName 100") }
+        verify { server.dispatchCommand(console, "eco give $firstName 15") }
+        verify { server.dispatchCommand(console, "eco give $secondName 10") }
+    }
+
+    @Test
+    fun `only first three qualifying correct players receive economy rewards`() {
+        val question = startQuestion()
+        val players = List(4) { mockPlayer() }
+        val names = players.map { it.name }
+        val answer = question.correctAnswerLetter.lowercase()
+
+        players.forEach { player ->
+            assertTrue(service.tryClaimAnswer(player.uniqueId))
+            assertEquals(TriviaService.AnswerResult.CORRECT, service.checkAnswer(player, answer))
+        }
+
+        service.timeUp()
+
+        verify(exactly = 4) { statsRepo.save(any()) }
+        verify { server.dispatchCommand(console, "eco give ${names[0]} 15") }
+        verify { server.dispatchCommand(console, "eco give ${names[1]} 10") }
+        verify { server.dispatchCommand(console, "eco give ${names[2]} 5") }
+        verify(exactly = 0) { server.dispatchCommand(console, match { it.contains(names[3]) }) }
+    }
+
+    @Test
+    fun `shared IP can earn leaderboard credit but only one economy payout`() {
+        val question = startQuestion()
+        val first = mockPlayer("203.0.113.10")
+        val alt = mockPlayer("203.0.113.10")
+        val third = mockPlayer("203.0.113.11")
+        val firstName = first.name
+        val altName = alt.name
+        val thirdName = third.name
+        val answer = question.correctAnswerLetter.lowercase()
+
+        listOf(first, alt, third).forEach { player ->
+            assertTrue(service.tryClaimAnswer(player.uniqueId))
+            assertEquals(TriviaService.AnswerResult.CORRECT, service.checkAnswer(player, answer))
+        }
+
+        service.timeUp()
+
+        verify(exactly = 3) { statsRepo.save(any()) }
+        verify { server.dispatchCommand(console, "eco give $firstName 15") }
+        verify(exactly = 0) { server.dispatchCommand(console, match { it.contains(altName) }) }
+        verify { server.dispatchCommand(console, "eco give $thirdName 10") }
     }
 
     @Test
@@ -211,11 +268,13 @@ class TriviaServiceTest {
         category = "Geography", difficulty = "easy", type = "multiple",
     )
 
-    private fun mockPlayer(): Player {
+    private fun mockPlayer(ip: String? = null): Player {
         val uuid = UUID.randomUUID()
+        val resolvedIp = ip ?: "198.51.100.${nextIpOctet++}"
         val player: Player = mockk(relaxed = true)
         every { player.uniqueId } returns uuid
         every { player.name } returns "Player_$uuid"
+        every { player.address } returns InetSocketAddress(resolvedIp, 25565)
         every { player.hasPermission(any<String>()) } returns false
         every { player.isOnline } returns true
         return player

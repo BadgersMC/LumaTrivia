@@ -1,6 +1,6 @@
 # Requirements — LumaTrivia
 
-**Date:** 2026-07-28
+**Date:** 2026-10-08
 **Status:** Bootstrap (SPEAR init for Java→Kotlin+Nexus rewrite)
 **EARS subset enforced:** Ubiquitous, Event-driven, State-driven, Unwanted.
 
@@ -20,15 +20,15 @@ Each requirement carries a stable ID. Tasks reference requirements by ID. New re
 
 ### REQ-003 — Correct answer handling
 
-**Event-driven.** WHEN a player answers correctly THE SYSTEM SHALL end the current question, announce the winner and the correct answer, award points based on difficulty, execute configured reward commands, update persistent player stats, and unmute all players.
+**Event-driven.** WHEN a player answers correctly THE SYSTEM SHALL lock in that answer without revealing correctness or ending the round. WHEN the answer timer expires THE SYSTEM SHALL award persistent stats and difficulty points to every correct player and reveal the correct answer plus the complete correct-player list.
 
-### REQ-004 — Wrong answer muting
+### REQ-004 — Hidden wrong answers
 
-**Event-driven.** WHEN a player answers incorrectly and mute-incorrect is enabled THE SYSTEM SHALL mute the player's chat for the remaining question duration and broadcast the wrong-answer announcement. THE SYSTEM SHALL respect the `lumatrivia.mute.bypass` permission.
+**Event-driven.** WHEN a player answers incorrectly THE SYSTEM SHALL consume that player's single answer for the round without broadcasting the guess, revealing correctness, or applying a trivia-specific mute. Existing platform mute enforcement and `lumatrivia.mute.bypass` SHALL remain compatible with the configured chat platform.
 
 ### REQ-005 — Time-up handling
 
-**Event-driven.** WHEN the answer timer expires without a correct answer THE SYSTEM SHALL announce the correct answer, end the question, and unmute all players.
+**Event-driven.** WHEN the answer timer expires THE SYSTEM SHALL close submissions, reveal the correct answer, list all correct players (or state that nobody was correct), resolve leaderboard/stat credit and eligible economy rewards, end the question, and clear trivia/platform mutes.
 
 ### REQ-006 — One answer per player
 
@@ -72,7 +72,7 @@ Each requirement carries a stable ID. Tasks reference requirements by ID. New re
 
 ### REQ-015 — Reward commands
 
-**Event-driven.** WHEN a player answers correctly THE SYSTEM SHALL dispatch configured reward commands via the console sender on the main thread, substituting `%player%` with the winner's name.
+**Event-driven.** WHEN a round resolves THE SYSTEM SHALL dispatch economy reward commands only for the first configured number of qualifying correct submissions, in answer order, substituting `%player%` and `%place%` where present. Placement-specific commands SHALL override legacy difficulty reward commands for that placement. Stats and leaderboard points SHALL remain independent of economy payout eligibility.
 
 ### REQ-016 — i18n via MiniMessage
 
@@ -88,4 +88,8 @@ Each requirement carries a stable ID. Tasks reference requirements by ID. New re
 
 ### REQ-019 — Chat event handling
 
-**Event-driven.** WHEN a player sends chat during an active game THE SYSTEM SHALL process the message through a single `AsyncChatEvent` listener at `LOWEST` priority with `ignoreCancelled = true`, handling both mute enforcement and answer parsing in one handler.
+**Event-driven.** WHEN a player sends chat during an active game THE SYSTEM SHALL process the message through a single Bukkit `AsyncPlayerChatEvent` listener at `LOWEST` priority with `ignoreCancelled = false` for RoseChat compatibility, suppressing answer-channel messages while preserving typed-answer fallback for Java and Bedrock players.
+
+### REQ-020 — Economy anti-abuse controls
+
+**State-driven.** WHILE a trivia round is resolving THE SYSTEM SHALL preserve correct-submission order, cap economy payouts to `game.reward-payout.max-paid-winners`, and, when `one-per-ip` is enabled, allow only the first qualifying correct account from each available IP address to receive an economy payout. Players excluded from economy payout by placement or shared IP SHALL still receive correct-answer statistics and leaderboard points.

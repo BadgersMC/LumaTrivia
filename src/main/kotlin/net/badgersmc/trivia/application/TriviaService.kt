@@ -15,6 +15,7 @@ import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Core trivia game lifecycle service (REQ-001..007, REQ-012, REQ-015).
@@ -41,9 +42,15 @@ class TriviaService(
     private var gameActive: Boolean = false
     private var gameTaskId: Int = -1
     private var cooldownUntil: Long = 0L
+    private data class CorrectSubmission(
+        val playerId: UUID,
+        val playerName: String,
+        val ipAddress: String?,
+    )
+
     private var currentQuestionData: Question? = null
     private val answeredPlayers: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
-    private val correctPlayers: MutableMap<UUID, String> = ConcurrentHashMap()
+    private val correctSubmissions = CopyOnWriteArrayList<CorrectSubmission>()
 
     val currentQuestion: Question? get() = currentQuestionData
     val isActive: Boolean get() = gameActive
@@ -91,7 +98,7 @@ class TriviaService(
         val question = fetcher.poll() ?: return false
         currentQuestionData = question
         answeredPlayers.clear()
-        correctPlayers.clear()
+        correctSubmissions.clear()
         gameActive = true
 
         val mm = MiniMessage.miniMessage()
@@ -114,7 +121,11 @@ class TriviaService(
         val question = currentQuestionData ?: return AnswerResult.NO_GAME
 
         if (question.isCorrectAnswer(answer)) {
-            correctPlayers[player.uniqueId] = player.name
+            correctSubmissions += CorrectSubmission(
+                playerId = player.uniqueId,
+                playerName = player.name,
+                ipAddress = player.address?.address?.hostAddress?.substringBefore('%'),
+            )
             return AnswerResult.CORRECT
         }
 
@@ -126,14 +137,21 @@ class TriviaService(
     fun timeUp() {
         if (!gameActive) return
         val question = currentQuestionData
-        val winners = correctPlayers.toMap()
+        val winners = correctSubmissions.toList()
         endGame()
 
         if (question == null) return
 
-        for ((playerId, playerName) in winners) {
-            recordWin(playerId, playerName, question)
-            giveRewards(playerName, question.difficulty)
+        // Every correct answer counts toward stats/leaderboard, even when the
+        // player is outside the economy payout window or shares an IP.
+        winners.forEach { winner ->
+            recordWin(winner.playerId, winner.playerName, question)
+        }
+
+        // Economy rewards are intentionally scarcer: earliest qualifying
+        // correct submissions win, with optional one-paid-account-per-IP gating.
+        selectPaidWinners(winners).forEachIndexed { index, winner ->
+            giveRewards(winner.playerName, question.difficulty, index + 1)
         }
 
         val mm = MiniMessage.miniMessage()
@@ -146,7 +164,7 @@ class TriviaService(
         if (winners.isEmpty()) {
             broadcast?.invoke(mm.deserialize("<gray>No one answered correctly this round.</gray>"))
         } else {
-            val names = winners.values.joinToString(", ") { mm.escapeTags(it) }
+            val names = winners.joinToString(", ") { mm.escapeTags(it.playerName) }
             broadcast?.invoke(mm.deserialize("<green>Correct:</green> <white>$names</white>"))
         }
     }
@@ -191,7 +209,7 @@ class TriviaService(
         // Release any legacy/platform mutes — round is over.
         chat.clearMutes()
         answeredPlayers.clear()
-        correctPlayers.clear()
+        correctSubmissions.clear()
         cooldownUntil = System.currentTimeMillis() + (config.game.cooldown * 1000L)
     }
 
@@ -210,12 +228,37 @@ class TriviaService(
         statsRepo.save(stats)
     }
 
-    private fun giveRewards(playerName: String, difficulty: String) {
-        val rewards = config.rewards[difficulty.lowercase()] ?: return
-        for (command in rewards.commands) {
+    private fun selectPaidWinners(winners: List<CorrectSubmission>): List<CorrectSubmission> {
+        val payout = config.game.rewardPayout
+        if (payout.maxPaidWinners <= 0) return emptyList()
+
+        val claimedIps = mutableSetOf<String>()
+        val paid = ArrayList<CorrectSubmission>(payout.maxPaidWinners)
+        for (winner in winners) {
+            if (payout.onePerIp) {
+                val ip = winner.ipAddress
+                if (ip != null && !claimedIps.add(ip)) continue
+            }
+            paid += winner
+            if (paid.size >= payout.maxPaidWinners) break
+        }
+        return paid
+    }
+
+    private fun giveRewards(playerName: String, difficulty: String, place: Int) {
+        val payout = config.game.rewardPayout
+        val commands = if (payout.placementCommands.containsKey(place)) {
+            payout.placementCommands[place].orEmpty()
+        } else {
+            config.rewards[difficulty.lowercase()]?.commands.orEmpty()
+        }
+
+        for (command in commands) {
             plugin.server.dispatchCommand(
                 plugin.server.consoleSender,
-                command.replace("%player%", playerName)
+                command
+                    .replace("%player%", playerName)
+                    .replace("%place%", place.toString())
             )
         }
     }
