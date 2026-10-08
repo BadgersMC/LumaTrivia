@@ -122,6 +122,13 @@ This plugin uses Gradle. To build:
 
 The built jar will be in `build/libs/`.
 
+Network builds can use `-ProseChatJar=/path/to/the/built/RoseChat.jar` or
+`ROSECHAT_JAR` to compile against their actual companion. The Gradle property
+takes precedence. Explicit missing inputs fail; no argument retains the legacy
+checked-in API. Neither path shades RoseChat runtime classes into Trivia.
+See [network API verification](docs/network-api-verification.md) for the exact
+companion pin and the distinction between compilation and live acceptance.
+
 ## Testing
 
 Run the test suite:

@@ -5,6 +5,20 @@
 
 Tags: `TDD`, `DOC`, `INFRA`. State: `[ ]` not started, `[~]` in progress, `[x]` done.
 
+- [x] INFRA-12 local implementation — Exact RoseChat network API selection (REQ-020).
+  Base: fetched canonical main a293dafb3427567ed40b72f20ba706b98b463202.
+  Network main 559bfabc pins BadgersMC/Enthusia-RoseChat cf8a7b040f7194a0bf26d98096493bbb7e53efa9.
+  SPEAR infrastructure: spec, invalid-input diagnostic, explicit compileOnly
+  selection, independent actual companion compilation, refinement tests/build.
+  Existing defaults and runtime behavior remain unchanged. No local EARS/state
+  helper exists; this task and docs/network-api-verification.md track evidence.
+  Hosted CI/review, source merge, monorepo pin and live/client acceptance are
+  separate. No production upload or activation.
+  Verification: explicit missing input now fails rather than being ignored;
+  actual pinned RoseChat RC-4 builds on Java 21, and a clean Trivia build against
+  it passes 41 tests, zero failures/errors/skips. Default legacy build and hosted
+  exact-head companion CI/review are checked separately; see verification doc.
+
 ---
 
 ## Milestone M0 — Scaffold & Config

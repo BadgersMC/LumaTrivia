@@ -8,6 +8,14 @@ plugins {
 group = "net.badgersmc.trivia"
 version = findProperty("releaseVersion")?.toString() ?: "1.1.0"
 
+// Network builds compile against their actual companion, never overwrite the
+// checked-in legacy binary and never silently fall back after explicit input.
+val roseChatPath = providers.gradleProperty("roseChatJar")
+    .orElse(providers.environmentVariable("ROSECHAT_JAR"))
+    .orElse("libs/RoseChat-RC-2.jar").get()
+val roseChatApi = file(roseChatPath)
+require(roseChatApi.isFile) { "RoseChat compile API does not exist: $roseChatPath" }
+
 repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
@@ -47,7 +55,7 @@ dependencies {
     compileOnly("net.kyori:adventure-text-minimessage:4.17.0")
 
     // RoseChat (optional compileOnly — softdepend at runtime)
-    compileOnly(files("libs/RoseChat-RC-2.jar"))
+    compileOnly(files(roseChatApi))
 
     // Testing
     testImplementation(kotlin("test"))
