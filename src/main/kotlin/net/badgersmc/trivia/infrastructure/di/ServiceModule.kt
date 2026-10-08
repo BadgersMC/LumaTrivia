@@ -125,16 +125,36 @@ class ServiceModule(val plugin: LumaTriviaPlugin) {
                         times = (it["times"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList(),
                     )
                 } ?: ScheduleConfig(false, emptyList())
+                val rewardPayout = (g["reward-payout"] as? Map<String, Any>)?.let { payout ->
+                    val placements = (payout["placements"] as? Map<*, *>)
+                        ?.mapNotNull { (key, value) ->
+                            val place = key?.toString()?.toIntOrNull() ?: return@mapNotNull null
+                            val commands = when (value) {
+                                is List<*> -> value.mapNotNull { it?.toString() }
+                                is Map<*, *> -> (value["commands"] as? List<*>)?.mapNotNull { it?.toString() }.orEmpty()
+                                else -> emptyList()
+                            }
+                            place to commands
+                        }
+                        ?.toMap()
+                        .orEmpty()
+                    RewardPayoutConfig(
+                        maxPaidWinners = ((payout["max-paid-winners"] as? Number)?.toInt() ?: 3).coerceAtLeast(0),
+                        onePerIp = payout["one-per-ip"] as? Boolean ?: true,
+                        placementCommands = placements,
+                    )
+                } ?: RewardPayoutConfig(3, true, emptyMap())
                 GameConfig(
-                    answerTime = (g["answer-time"] as? Number)?.toInt() ?: 30,
+                    answerTime = (g["answer-time"] as? Number)?.toInt() ?: 10,
                     cooldown = (g["cooldown"] as? Number)?.toInt() ?: 300,
                     muteIncorrect = mute,
                     schedule = schedule,
                     channel = g["channel"]?.toString() ?: "global",
                     categories = (g["categories"] as? List<*>)?.mapNotNull { (it as? Number)?.toInt() } ?: emptyList(),
                     difficulties = (g["difficulties"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList(),
+                    rewardPayout = rewardPayout,
                 )
-            } ?: GameConfig(30, 300, MuteIncorrectConfig(true), ScheduleConfig(false, emptyList()), "global", emptyList(), emptyList())
+            } ?: GameConfig(10, 300, MuteIncorrectConfig(true), ScheduleConfig(false, emptyList()), "global", emptyList(), emptyList())
 
             val rewards: Map<String, RewardConfig> = (data["rewards"] as? Map<String, Any>)?.mapValues { (_, v) ->
                 val r = v as? Map<String, Any> ?: return@mapValues RewardConfig(emptyList(), 0)
@@ -165,7 +185,7 @@ class ServiceModule(val plugin: LumaTriviaPlugin) {
             plugin.logger.warning("Failed to load config.yml: ${e.message}, using defaults")
             TriviaConfig(
                 api = ApiConfig("https://opentdb.com/api.php", 24, 10000),
-                game = GameConfig(30, 300, MuteIncorrectConfig(true), ScheduleConfig(false, emptyList()), "global", emptyList(), emptyList()),
+                game = GameConfig(10, 300, MuteIncorrectConfig(true), ScheduleConfig(false, emptyList()), "global", emptyList(), emptyList()),
                 rewards = emptyMap(),
                 contentFilter = ContentFilterConfig(true, true, emptyList(), ""),
                 storage = StorageConfig("sqlite", "stats.db"),
