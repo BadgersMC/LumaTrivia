@@ -7,6 +7,56 @@ on:
     branches: [main]
 
 jobs:
+  network-rosechat:
+    name: Verify actual pinned network RoseChat API
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      # Pin owned by enthusia-network main 559bfabc; update with network API review.
+      NETWORK_ROSECHAT_REF: cf8a7b040f7194a0bf26d98096493bbb7e53efa9
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Build exact companion source
+        run: |
+          set -euo pipefail
+          git clone https://github.com/BadgersMC/Enthusia-RoseChat.git "$RUNNER_TEMP/rosechat"
+          (
+            cd "$RUNNER_TEMP/rosechat"
+            git checkout --detach "$NETWORK_ROSECHAT_REF"
+            test "$(git rev-parse HEAD)" = "$NETWORK_ROSECHAT_REF"
+            test -z "$(git status --porcelain)"
+            bash ./gradlew shadowJar --no-daemon
+          )
+          mapfile -t jars < <(find "$RUNNER_TEMP/rosechat/build/libs" -maxdepth 1 -type f -name 'RoseChat-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar')
+          test "${#jars[@]}" -eq 1
+          sha256sum "${jars[0]}"
+          echo "ROSECHAT_JAR=${jars[0]}" >> "$GITHUB_ENV"
+      - name: Explicit missing API fails without legacy fallback
+        run: |
+          set -euo pipefail
+          if bash ./gradlew help "-ProseChatJar=$RUNNER_TEMP/missing-api.jar" --no-daemon > "$RUNNER_TEMP/missing-api.log" 2>&1; then
+            echo '::error::Missing explicit API was accepted'
+            exit 1
+          fi
+          grep -F 'RoseChat compile API does not exist:' "$RUNNER_TEMP/missing-api.log"
+      - name: Verify clean build against real companion
+        run: bash ./gradlew clean test shadowJar --no-daemon
+      - name: Check companion stays compile-only
+        run: |
+          set -euo pipefail
+          jar tf build/libs/LumaTrivia-1.1.0.jar > "$RUNNER_TEMP/trivia-entries.txt"
+          if grep -q '^dev/rosewood/rosechat/' "$RUNNER_TEMP/trivia-entries.txt"; then
+            echo '::error::RoseChat runtime classes were shaded into Trivia'
+            exit 1
+          fi
   test:
     runs-on: ubuntu-latest
     steps:

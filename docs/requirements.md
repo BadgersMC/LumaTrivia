@@ -89,3 +89,11 @@ Each requirement carries a stable ID. Tasks reference requirements by ID. New re
 ### REQ-019 — Chat event handling
 
 **Event-driven.** WHEN a player sends chat during an active game THE SYSTEM SHALL process the message through a single `AsyncChatEvent` listener at `LOWEST` priority with `ignoreCancelled = true`, handling both mute enforcement and answer parsing in one handler.
+
+### REQ-020 — Exact companion build selection
+
+WHEN a network build supplies roseChatJar or ROSECHAT_JAR THE SYSTEM SHALL compile
+against only that existing companion JAR and SHALL reject missing input rather
+than silently using the checked-in legacy API.
+WHEN companion integration CI runs THE SYSTEM SHALL build the immutable network
+RoseChat pin and verify a clean Trivia build against its real API.
