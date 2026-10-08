@@ -28,5 +28,5 @@ permissions:
       lumatrivia.start: true
       lumatrivia.use: true
   lumatrivia.mute.bypass:
-    description: Exempt from wrong-answer muting
+    description: Exempt from trivia platform-mute enforcement
     default: op
