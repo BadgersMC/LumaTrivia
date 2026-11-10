@@ -24,10 +24,15 @@ mute:
   unmuted: "<prefix><shadow:#000000:1><green>You are no longer muted!</green></shadow>"
 
 commands:
+  toggle_on: "<prefix><green>Trivia enabled.</green> <gray>You can answer questions again.</gray>"
+  toggle_off: "<prefix><yellow>Trivia disabled.</yellow> <gray>Your chat will no longer be intercepted during rounds.</gray>"
+  toggle_failed: "<prefix><red>Could not save your trivia preference. Please try again.</red>"
+  opted_out_answer: "<prefix><yellow>You're opted out of trivia.</yellow> <gray>Use /trivia on to participate.</gray>"
   stats: "<prefix><shadow:#000000:1><yellow>Stats for <player></yellow>\n<gray>Total Correct:</gray> <white><total></white>\n<gray>Easy:</gray> <green><easy></green>\n<gray>Medium:</gray> <yellow><medium></yellow>\n<gray>Hard:</gray> <red><hard></red>\n<gray>Points:</gray> <gold><points></gold></shadow>"
   leaderboard: "<prefix><shadow:#000000:1><gold>Top Players:</gold>\n<leaderboard></shadow>"
   reload: "<prefix><shadow:#000000:1><green>Configuration reloaded successfully!</green></shadow>"
   usage_header: "<prefix><shadow:#000000:1><gold>=== LumaTrivia Commands ===</gold></shadow>"
+  usage_toggle: "<prefix><shadow:#000000:1><yellow>/trivia toggle</yellow> <gray>— Toggle trivia participation (/trivia on or off)</gray></shadow>"
   usage_start: "<prefix><shadow:#000000:1><yellow>/trivia start</yellow> <gray>— Start a new trivia game</gray></shadow>"
   usage_stats: "<prefix><shadow:#000000:1><yellow>/trivia stats</yellow> <gray>— View your trivia stats</gray></shadow>"
   usage_top: "<prefix><shadow:#000000:1><yellow>/trivia top</yellow> <gray>— View the leaderboard</gray></shadow>"

@@ -20,7 +20,7 @@ class TriviaBukkitCommand(
 
     init {
         description = "Main command for trivia games"
-        usage = "/<command> [start|stats|top|reload]"
+        usage = "/<command> [toggle|on|off|start|stats|top|reload]"
         setAliases(listOf("tr"))
     }
 
@@ -32,6 +32,9 @@ class TriviaBukkitCommand(
 
         when (args[0].lowercase()) {
             "answer" -> handleAnswer(sender, args)
+            "toggle" -> handleParticipation(sender, null)
+            "on" -> handleParticipation(sender, true)
+            "off" -> handleParticipation(sender, false)
             "start" -> handleStart(sender)
             "stats" -> handleStats(sender)
             "top" -> handleTop(sender)
@@ -44,6 +47,10 @@ class TriviaBukkitCommand(
     /** Hidden submission command used by clickable Java chat options. */
     private fun handleAnswer(sender: CommandSender, args: Array<out String>) {
         if (sender !is Player || !triviaService.isActive || args.size < 2) return
+        if (!services.participation.isOptedIn(sender.uniqueId)) {
+            sender.sendMessage(lang.msg("commands.opted_out_answer"))
+            return
+        }
 
         val question = triviaService.currentQuestion ?: return
         val normalized = args[1].trim().lowercase()
@@ -67,6 +74,29 @@ class TriviaBukkitCommand(
             TriviaService.AnswerResult.ALREADY_ANSWERED -> sender.sendMessage(lang.msg("game.already_answered"))
             TriviaService.AnswerResult.NO_GAME -> {}
         }
+    }
+
+    private fun handleParticipation(sender: CommandSender, enabled: Boolean?) {
+        if (sender !is Player) {
+            sender.sendMessage(lang.msg("error.player_only"))
+            return
+        }
+        if (!sender.hasPermission("lumatrivia.use")) {
+            sender.sendMessage(lang.msg("error.no_permission"))
+            return
+        }
+
+        val next = enabled ?: !services.participation.isOptedIn(sender.uniqueId)
+        try {
+            services.participation.setOptedIn(sender.uniqueId, next)
+        } catch (e: java.io.IOException) {
+            services.plugin.logger.warning("Unable to save trivia preference for ${sender.uniqueId}: ${e.message}")
+            sender.sendMessage(lang.msg("commands.toggle_failed"))
+            return
+        }
+
+        if (!next) services.chatPlatform.unmutePlayer(sender)
+        sender.sendMessage(lang.msg(if (next) "commands.toggle_on" else "commands.toggle_off"))
     }
 
     private fun handleStart(sender: CommandSender) {
@@ -143,6 +173,9 @@ class TriviaBukkitCommand(
     override fun tabComplete(sender: CommandSender, alias: String, args: Array<out String>): List<String> {
         if (args.size != 1) return emptyList()
         return listOfNotNull(
+            "toggle".takeIf { sender.hasPermission("lumatrivia.use") },
+            "on".takeIf { sender.hasPermission("lumatrivia.use") },
+            "off".takeIf { sender.hasPermission("lumatrivia.use") },
             "start".takeIf { sender.hasPermission("lumatrivia.start") },
             "stats".takeIf { sender.hasPermission("lumatrivia.use") },
             "top".takeIf { sender.hasPermission("lumatrivia.use") },
@@ -155,6 +188,7 @@ class TriviaBukkitCommand(
         if (sender.hasPermission("lumatrivia.start"))
             sender.sendMessage(lang.msg("commands.usage_start"))
         if (sender.hasPermission("lumatrivia.use")) {
+            sender.sendMessage(lang.msg("commands.usage_toggle"))
             sender.sendMessage(lang.msg("commands.usage_stats"))
             sender.sendMessage(lang.msg("commands.usage_top"))
         }

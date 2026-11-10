@@ -13,6 +13,7 @@ Powered by https://opentdb.com/
 - Three difficulty levels (Easy, Medium, Hard)
 - Point-based reward system
 - Player statistics and leaderboard
+- Persistent per-player trivia opt-in, including uninterrupted chat when opted out
 - Configurable cooldowns and timers
 - Optional scheduled games
 - Async question fetching and caching
@@ -30,6 +31,8 @@ Powered by https://opentdb.com/
 
 ## Commands
 
+- `/trivia toggle` - Toggle trivia participation (on by default)
+- `/trivia on` / `/trivia off` - Explicitly join or leave trivia participation
 - `/trivia start` - Start a new trivia game
 - `/trivia stats` - View your trivia statistics
 - `/trivia top` - View the leaderboard
@@ -121,6 +124,13 @@ This plugin uses Gradle. To build:
 ```
 
 The built jar will be in `build/libs/`.
+
+Network builds can use `-ProseChatJar=/path/to/the/built/RoseChat.jar` or
+`ROSECHAT_JAR` to compile against their actual companion. The Gradle property
+takes precedence. Explicit missing inputs fail; no argument retains the legacy
+checked-in API. Neither path shades RoseChat runtime classes into Trivia.
+See [network API verification](docs/network-api-verification.md) for the exact
+companion pin and the distinction between compilation and live acceptance.
 
 ## Testing
 

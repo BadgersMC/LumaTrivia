@@ -26,9 +26,13 @@ class LumaTriviaPlugin : JavaPlugin() {
 
         services = ServiceModule(this)
 
-        // Wire broadcast callback for game announcements
+        // Trivia announcements are only shown to players who opted in.
         services.triviaService.broadcast = { component ->
-            server.broadcast(component)
+            for (player in server.onlinePlayers) {
+                if (services.participation.isOptedIn(player.uniqueId)) {
+                    player.sendMessage(component)
+                }
+            }
         }
 
         // Wire async fetch callback — fetch with bounded retry on empty cache
