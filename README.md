@@ -13,6 +13,7 @@ Powered by https://opentdb.com/
 - Three difficulty levels (Easy, Medium, Hard)
 - Point-based reward system
 - Player statistics and leaderboard
+- Persistent per-player trivia opt-in, including uninterrupted chat when opted out
 - Configurable cooldowns and timers
 - Optional scheduled games
 - Async question fetching and caching
@@ -30,6 +31,8 @@ Powered by https://opentdb.com/
 
 ## Commands
 
+- `/trivia toggle` - Toggle trivia participation (on by default)
+- `/trivia on` / `/trivia off` - Explicitly join or leave trivia participation
 - `/trivia start` - Start a new trivia game
 - `/trivia stats` - View your trivia statistics
 - `/trivia top` - View the leaderboard
