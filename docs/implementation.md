@@ -53,6 +53,12 @@ LumaTrivia/
 
 ## 2. Layer Dependency Rules
 
+Network build infrastructure may select a real compile-only RoseChat JAR using
+`-ProseChatJar=<path>` or `ROSECHAT_JAR`. Explicit missing inputs fail configuration.
+No argument preserves the historical `libs/RoseChat-RC-2.jar` default. This does
+not add RoseChat runtime classes to the shaded artifact or change optional
+loading, gameplay rules, storage, permissions or the layer contracts below.
+
 The three-layer discipline SPEAR enforces. `/spear:arch` reads this exact section and blocks on violations.
 
 | Layer | Concrete files | May depend on |
