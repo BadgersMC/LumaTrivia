@@ -8,8 +8,14 @@ data class GameConfig(
     val schedule: ScheduleConfig,
     val channel: String,
     val categories: List<Int>, val difficulties: List<String>,
+    val rewardPayout: RewardPayoutConfig = RewardPayoutConfig(3, true, emptyMap()),
 )
 data class MuteIncorrectConfig(val enabled: Boolean)
+data class RewardPayoutConfig(
+    val maxPaidWinners: Int,
+    val onePerIp: Boolean,
+    val placementCommands: Map<Int, List<String>>,
+)
 data class ScheduleConfig(val enabled: Boolean, val times: List<String>)
 data class RewardConfig(val commands: List<String>, val points: Int)
 data class ContentFilterConfig(

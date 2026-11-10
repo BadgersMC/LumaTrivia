@@ -8,11 +8,23 @@ api:
 
 # Game Settings
 game:
-  answer-time: 30
+  answer-time: 10
   cooldown: 300
   channel: "global"
   mute-incorrect:
     enabled: true
+  # Economy rewards are limited to the first qualifying correct submissions.
+  # All correct players still receive leaderboard/stat credit.
+  reward-payout:
+    max-paid-winners: 3
+    one-per-ip: true
+    placements:
+      1:
+        - "give %player% raw_gold 15"
+      2:
+        - "give %player% raw_gold 10"
+      3:
+        - "give %player% raw_gold 5"
   schedule:
     enabled: true
     times:
