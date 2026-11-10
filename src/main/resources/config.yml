@@ -20,11 +20,11 @@ game:
     one-per-ip: true
     placements:
       1:
-        - "give %player% raw_gold 15"
+        - "give %uuid% raw_gold 15"
       2:
-        - "give %player% raw_gold 10"
+        - "give %uuid% raw_gold 10"
       3:
-        - "give %player% raw_gold 5"
+        - "give %uuid% raw_gold 5"
   schedule:
     enabled: true
     times:
@@ -157,15 +157,15 @@ game:
 rewards:
   easy:
     commands:
-      - "give %player% raw_gold 5"
+      - "give %uuid% raw_gold 5"
     points: 1
   medium:
     commands:
-      - "give %player% raw_gold 10"
+      - "give %uuid% raw_gold 10"
     points: 2
   hard:
     commands:
-      - "give %player% raw_gold 15"
+      - "give %uuid% raw_gold 15"
     points: 3
 
 # Content Filter Settings

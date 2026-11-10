@@ -16,6 +16,7 @@ import org.bukkit.plugin.java.JavaPlugin
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.logging.Level
 
 /**
  * Core trivia game lifecycle service (REQ-001..007, REQ-012, REQ-015).
@@ -30,6 +31,10 @@ class TriviaService(
     private val chat: ChatPlatform,
 ) {
     enum class AnswerResult { CORRECT, WRONG, ALREADY_ANSWERED, NO_GAME }
+
+    // Existing configs use 'give %player% ...'; only vanilla give should
+    // translate that legacy player-name target into a UUID.
+    private val vanillaGivePlayerArg = Regex("""^(\s*(?:minecraft:)?give\s+)%player%(?=\s|$)""", RegexOption.IGNORE_CASE)
 
     /** Callback for broadcasting components to all players. */
     var broadcast: ((message: Component) -> Unit)? = null
@@ -142,18 +147,8 @@ class TriviaService(
 
         if (question == null) return
 
-        // Every correct answer counts toward stats/leaderboard, even when the
-        // player is outside the economy payout window or shares an IP.
-        winners.forEach { winner ->
-            recordWin(winner.playerId, winner.playerName, question)
-        }
-
-        // Economy rewards are intentionally scarcer: earliest qualifying
-        // correct submissions win, with optional one-paid-account-per-IP gating.
-        selectPaidWinners(winners).forEachIndexed { index, winner ->
-            giveRewards(winner.playerName, question.difficulty, index + 1)
-        }
-
+        // Resolve the public round result first. A failed economy command must
+        // never suppress the answer reveal or the list of correct players.
         val mm = MiniMessage.miniMessage()
         broadcast?.invoke(
             mm.deserialize(
@@ -166,6 +161,18 @@ class TriviaService(
         } else {
             val names = winners.joinToString(", ") { mm.escapeTags(it.playerName) }
             broadcast?.invoke(mm.deserialize("<green>Correct:</green> <white>$names</white>"))
+        }
+
+        // Every correct answer counts toward stats/leaderboard, even when the
+        // player is outside the economy payout window or shares an IP.
+        winners.forEach { winner ->
+            recordWin(winner.playerId, winner.playerName, question)
+        }
+
+        // Economy rewards are intentionally scarcer: earliest qualifying
+        // correct submissions win, with optional one-paid-account-per-IP gating.
+        selectPaidWinners(winners).forEachIndexed { index, winner ->
+            giveRewards(winner.playerId, winner.playerName, question.difficulty, index + 1)
         }
     }
 
@@ -245,7 +252,7 @@ class TriviaService(
         return paid
     }
 
-    private fun giveRewards(playerName: String, difficulty: String, place: Int) {
+    private fun giveRewards(playerId: UUID, playerName: String, difficulty: String, place: Int) {
         val payout = config.game.rewardPayout
         val commands = if (payout.placementCommands.containsKey(place)) {
             payout.placementCommands[place].orEmpty()
@@ -254,12 +261,23 @@ class TriviaService(
         }
 
         for (command in commands) {
-            plugin.server.dispatchCommand(
-                plugin.server.consoleSender,
-                command
-                    .replace("%player%", playerName)
-                    .replace("%place%", place.toString())
-            )
+            val uuidTargeted = vanillaGivePlayerArg.replace(command) { match ->
+                "${match.groupValues[1]}$playerId"
+            }
+            val rendered = uuidTargeted
+                .replace("%uuid%", playerId.toString())
+                .replace("%player%", playerName)
+                .replace("%place%", place.toString())
+
+            try {
+                plugin.server.dispatchCommand(plugin.server.consoleSender, rendered)
+            } catch (e: Exception) {
+                plugin.logger.log(
+                    Level.WARNING,
+                    "Trivia reward failed for $playerName ($playerId) at placement $place: $rendered",
+                    e,
+                )
+            }
         }
     }
 }

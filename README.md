@@ -46,12 +46,14 @@ Powered by https://opentdb.com/
 
 ## Configuration
 
-The plugin is highly configurable. Here's an example configuration:
+The plugin is highly configurable. Reward commands support `%player%` (display name), `%uuid%` (stable player UUID), and `%place%` (paid placement). Vanilla `give %player% ...` commands from existing configurations automatically target the player's UUID, so Bedrock/Floodgate names work without a config migration. Other plugin commands retain their `%player%` behavior.
+
+Here's an example configuration:
 
 ```yaml
 # Game Settings
 game:
-  answer-time: 30    # Seconds to answer each question
+  answer-time: 10    # Seconds to answer each question
   cooldown: 300      # Seconds between trivia games
   schedule:          # Optional scheduled games
     enabled: true
@@ -65,17 +67,17 @@ rewards:
   easy:
     commands:
       - "eco give %player% 100"
-      - "give %player% diamond 1"
+      - "give %uuid% diamond 1"
     points: 1
   medium:
     commands:
       - "eco give %player% 250"
-      - "give %player% diamond 3"
+      - "give %uuid% diamond 3"
     points: 2
   hard:
     commands:
       - "eco give %player% 500"
-      - "give %player% diamond 5"
+      - "give %uuid% diamond 5"
     points: 3
 ```
 

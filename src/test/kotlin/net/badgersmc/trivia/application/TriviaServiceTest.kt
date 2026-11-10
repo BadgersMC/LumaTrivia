@@ -189,6 +189,62 @@ class TriviaServiceTest {
     }
 
     @Test
+    fun `Bedrock give targets UUID and failed command does not interrupt resolution`() {
+        val question = startQuestion()
+        val bedrock = mockPlayer(name = "*pengu1923")
+        val java = mockPlayer()
+        val calls = mutableListOf<String>()
+        val events = mutableListOf<String>()
+
+        config = config.copy(
+            game = config.game.copy(
+                rewardPayout = RewardPayoutConfig(
+                    maxPaidWinners = 2,
+                    onePerIp = false,
+                    placementCommands = mapOf(
+                        1 to listOf("give %player% raw_gold 15", "eco give %player% 1"),
+                        2 to listOf("minecraft:give %player% raw_gold 10", "say %uuid% %place% %player%"),
+                    ),
+                ),
+            ),
+        )
+        service.updateConfig(config)
+        service.broadcast = { events += "announcement" }
+        every { server.dispatchCommand(console, any()) } answers {
+            val rendered = secondArg<String>()
+            calls += rendered
+            events += "reward"
+            if (rendered == "give ${bedrock.uniqueId} raw_gold 15") {
+                throw org.bukkit.command.CommandException("Simulated failed give")
+            }
+            true
+        }
+
+        listOf(bedrock, java).forEach { player ->
+            assertTrue(service.tryClaimAnswer(player.uniqueId))
+            assertEquals(
+                TriviaService.AnswerResult.CORRECT,
+                service.checkAnswer(player, question.correctAnswerLetter.lowercase()),
+            )
+        }
+
+        service.timeUp()
+
+        assertEquals(listOf("announcement", "announcement"), events.take(2))
+        assertEquals(
+            listOf(
+                "give ${bedrock.uniqueId} raw_gold 15",
+                "eco give ${bedrock.name} 1",
+                "minecraft:give ${java.uniqueId} raw_gold 10",
+                "say ${java.uniqueId} 2 ${java.name}",
+            ),
+            calls,
+        )
+        verify(exactly = 2) { statsRepo.save(any()) }
+        assertFalse(service.isGameActive())
+    }
+
+    @Test
     fun `wrong answer is silent and does not mute or reward`() {
         val question = startQuestion()
         val player = mockPlayer()
@@ -268,12 +324,12 @@ class TriviaServiceTest {
         category = "Geography", difficulty = "easy", type = "multiple",
     )
 
-    private fun mockPlayer(ip: String? = null): Player {
+    private fun mockPlayer(ip: String? = null, name: String? = null): Player {
         val uuid = UUID.randomUUID()
         val resolvedIp = ip ?: "198.51.100.${nextIpOctet++}"
         val player: Player = mockk(relaxed = true)
         every { player.uniqueId } returns uuid
-        every { player.name } returns "Player_$uuid"
+        every { player.name } returns (name ?: "Player_$uuid")
         every { player.address } returns InetSocketAddress(resolvedIp, 25565)
         every { player.hasPermission(any<String>()) } returns false
         every { player.isOnline } returns true
