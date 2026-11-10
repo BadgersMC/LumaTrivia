@@ -11,6 +11,7 @@ import net.badgersmc.trivia.infrastructure.bukkit.VanillaChatPlatform
 import net.badgersmc.trivia.infrastructure.config.*
 import net.badgersmc.trivia.infrastructure.i18n.LumaTriviaLang
 import net.badgersmc.trivia.infrastructure.persistence.DatabaseFactory
+import net.badgersmc.trivia.infrastructure.persistence.ParticipationPreferences
 import net.badgersmc.trivia.infrastructure.persistence.SqliteStatsRepository
 import net.badgersmc.trivia.infrastructure.persistence.StatsRepository
 import okhttp3.OkHttpClient
@@ -67,6 +68,10 @@ class ServiceModule(val plugin: LumaTriviaPlugin) {
         StatsService(statsRepository)
     }
 
+    val participation: ParticipationPreferences by lazy {
+        ParticipationPreferences(File(plugin.dataFolder, "preferences.yml"))
+    }
+
     val triviaService: TriviaService by lazy {
         TriviaService(plugin, config, questionFetcher, statsRepository, nexusScheduler, chatPlatform)
     }
@@ -83,7 +88,7 @@ class ServiceModule(val plugin: LumaTriviaPlugin) {
     }
 
     val chatListener: ChatListener by lazy {
-        ChatListener(triviaService, lang, chatPlatform)
+        ChatListener(triviaService, lang, chatPlatform, participation)
     }
 
     private fun rebuildConfigDependentComponents() {

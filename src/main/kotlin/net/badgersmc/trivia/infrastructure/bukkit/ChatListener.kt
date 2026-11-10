@@ -3,6 +3,7 @@ package net.badgersmc.trivia.infrastructure.bukkit
 import net.badgersmc.nexus.i18n.LangService
 import net.badgersmc.trivia.application.ChatPlatform
 import net.badgersmc.trivia.application.TriviaService
+import net.badgersmc.trivia.infrastructure.persistence.ParticipationPreferences
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
@@ -20,13 +21,14 @@ class ChatListener(
     private val triviaService: TriviaService,
     private val lang: LangService,
     private val chatPlatform: ChatPlatform,
+    private val participation: ParticipationPreferences,
 ) : Listener {
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
     fun onChat(event: AsyncPlayerChatEvent) {
         val player = event.player
 
-        if (!triviaService.isActive) return
+        if (!triviaService.isActive || !participation.isOptedIn(player.uniqueId)) return
 
         val content = event.message.trim()
         if (content.isEmpty()) return
